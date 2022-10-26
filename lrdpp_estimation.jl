@@ -22,25 +22,34 @@ end
 
 function compute_loglik(lfdpp :: LFDPP, samples)
     logZ = logdet(lfdpp.V' * lfdpp.V + I)
-    try
-        return sum([logdet(lfdpp.V[sample, :] * lfdpp.V[sample, :]') for sample in samples]) - length(samples) * logZ
-    catch
-        return -Inf
-    end
+    return sum([logdet(lfdpp.V[sample, :] * lfdpp.V[sample, :]') for sample in samples]) - length(samples) * logZ
+    #try
+    #    return sum([logdet(lfdpp.V[sample, :] * lfdpp.V[sample, :]') for sample in samples]) - length(samples) * logZ
+    #catch
+    #    return -Inf
+    #end
 end
 
-function update_V(Vₜ, samples, ρₜ = 1.0)
+function update_V(V, samples, ρ = 1.0)
+    # update rule of the proposed method
     M = length(samples)
     U_samples = [I(N)[sample, :] for sample in samples]
 
-    Lₜ = Vₜ * Vₜ'
-
-    term1 = -mean([U_samples[m]' * inv(Lₜ[samples[m], samples[m]]) * U_samples[m] for m in 1:M])
-    term2 = inv(Lₜ + I)
-    #term1 = -mean([U_samples[m]' * inv(Vₜ[samples[m], :] * Vₜ[samples[m], :]') * U_samples[m] for m in 1:M])
-    #term2 = I - Vₜ * inv(I + Vₜ' * Vₜ) * Vₜ'
-    return ρₜ * (term1 + term2 + ρₜ * I) \ Vₜ
+    term1 = -mean([U_samples[m]' * inv(V[samples[m], :] * V[samples[m], :]') * U_samples[m] for m in 1:M])
+    term2 = I - V * inv(I + V' * V) * V'
+    return ((term1 + term2 + ρ * I) / ρ) \ V
 end
+
+function grad_V(V, samples)
+    # gradient of the mean log-likelihood by V
+    M = length(samples)
+    U_samples = [I(N)[sample, :] for sample in samples]
+
+    term1 = mean([U_samples[m]' * inv(V[samples[m], :] * V[samples[m], :]') * U_samples[m] for m in 1:M])
+    term2 = -(I - V * inv(I + V' * V) * V')
+    return 2 * (term1 + term2) * V
+end
+
 
 function mle(lfdpp :: LFDPP, samples; n_iter = 100, ρ = 1.0, show_progress = true)
     # MLE for a low-rank factorized DPP by the proposed method
@@ -50,18 +59,34 @@ function mle(lfdpp :: LFDPP, samples; n_iter = 100, ρ = 1.0, show_progress = tr
     logliks[1] = compute_loglik(lfdpp, samples)
 
     for i in 2:n_iter
-        try
-            lfdpp_next = LFDPP(update_V(lfdpp.V, samples, ρ))
-            logliks[i] = compute_loglik(lfdpp_next, samples)
-            lfdpp = lfdpp_next
+        lfdpp_next = LFDPP(update_V(lfdpp.V, samples, ρ))
+        logliks[i] = compute_loglik(lfdpp_next, samples)
+        lfdpp = lfdpp_next
 
-            next!(prog)
-        catch
-            break
-        end
+        next!(prog)
     end
     return lfdpp, logliks
 end
+
+function mle_grad(lfdpp :: LFDPP, samples; n_iter = 100, η = 1.0, show_progress = true)
+    # MLE for a low-rank factorized DPP by gradient ascent
+    prog = Progress(n_iter - 1, enabled = show_progress)
+
+    logliks = zeros(n_iter)
+    logliks[1] = compute_loglik(lfdpp, samples)
+
+    for i in 2:n_iter
+        gradV = grad_V(lfdpp.V, samples)
+        Vnext = lfdpp.V + η * gradV
+        lfdpp_next = LFDPP(Vnext)
+        logliks[i] = compute_loglik(lfdpp_next, samples)
+        lfdpp = lfdpp_next
+
+        next!(prog)
+    end
+    return lfdpp, logliks
+end
+
 
 
 function logdet_divergence(X, Y)
@@ -80,54 +105,36 @@ L = rand(Wishart(N, diagm(1:N) / N)) / N
 
 dpp = DeterminantalPointProcess(L)
 samples = rand(dpp, M)
-K = min(maximum(length.(samples)), N)
+K = min(maximum(length.(samples)) + 1, N)
 
-Linit = rand(Wishart(10N, diagm(10 * ones(N)))) / 10N
-#Linit = rand(Wishart(10N, diagm(5 * ones(N)))) / 10N
+#Linit = rand(Wishart(10N, diagm(10 * ones(N)))) / 10N
+Linit = rand(Wishart(10N, diagm(5 * ones(N)))) / 10N
+#Linit = rand(Wishart(10N, diagm(ones(N)))) / 10N
 eig_init = eigen(Linit)
 Vinit = eig_init.vectors[:, end - K + 1:end] * Diagonal(sqrt.(eig_init.values[end - K + 1:end]))
 
 
-lfdpp, logp = mle(LFDPP(Vinit), samples, ρ = 1.0)
-
-Vest = Vinit
-n_iter = 100
-logliks = zeros(n_iter)
-logliks[1] = compute_loglik(Vest, samples)
-lddiv_numer = zeros(n_iter - 1)
-lddiv_denom = zeros(n_iter - 1)
-lddiv_numer_prox = zeros(n_iter - 1)
-sval_traj = zeros(K, n_iter - 1)
-
-ρ = 1.0
-@showprogress for i in 2:n_iter
-    try
-        Vnext = update_V(Vest, samples, U_samples, M, ρ)
-        logliks[i] = compute_loglik(Vnext, samples)
-        lddiv_numer[i - 1] = mean([logdet_divergence((Vnext * Vnext')[sample, sample], (Vest * Vest')[sample, sample]) for sample in samples])
-        lddiv_denom[i - 1] = logdet_divergence(Vnext * Vnext' + I, Vest * Vest' + I)
-        lddiv_numer_prox[i - 1] = lddiv_numer[i - 1] - ρ * norm(Vnext - Vest, 2)
-        sval_traj[:, i - 1] = svdvals(Vnext)
-        Vest = Vnext
-    catch
-        break
-    end
-end
-
+lfdpp1, logp1 = mle(LFDPP(Vinit), samples, ρ = 1.0)
+lfdpp2, logp2 = mle(LFDPP(Vinit), samples, ρ = 2.0)
+lfdpp5, logp5 = mle(LFDPP(Vinit), samples, ρ = 5.0)
 
 loglik_truth = sum([logpdf(DeterminantalPointProcess(L), sample) for sample in samples])
-cmin = minimum(hcat(L, Vinit * Vinit', Vest * Vest'))
-cmax = maximum(hcat(L, Vinit * Vinit', Vest * Vest'))
+cmin = minimum(hcat(L, Vinit * Vinit', lfdpp1.V * lfdpp1.V', lfdpp2.V * lfdpp2.V', lfdpp5.V * lfdpp5.V'))
+cmax = maximum(hcat(L, Vinit * Vinit', lfdpp1.V * lfdpp1.V', lfdpp2.V * lfdpp2.V', lfdpp5.V * lfdpp5.V'))
 
-p1 = plot(logliks, ylabel = "log-likelihood", xlabel = "iter.", legend = :none, dpi = 200)
-hline!(p1, [loglik_truth])
+p1 = plot([logp1, logp2, logp5], ylabel = "log-likelihood", xlabel = "iter.", legend = :bottomright, dpi = 200,
+          label = ["rho = 1" "rho = 2" "rho = 5"], margin = 5Plots.mm, lw = 2)
+hline!(p1, [loglik_truth], label = "true param.", lw = 2)
 p2 = heatmap(L, clims = (cmin, cmax), title = "truth", dpi = 200)
 p3 = heatmap(Vinit * Vinit', clims = (cmin, cmax), title = "init.", dpi = 200)
-p4 = heatmap(Vest * Vest', clims = (cmin, cmax), title = "est.", dpi = 200)
+p4 = heatmap(lfdpp1.V * lfdpp1.V', clims = (cmin, cmax), title = "est. (rho = 1)", dpi = 200)
 p = plot(p1, p2, p3, p4, size = (1200, 800))
-savefig(p, "result.png")
+savefig(p, "result.pdf")
 
-p1 = plot(hcat(lddiv_numer, lddiv_denom, lddiv_numer_prox), label = ["numer" "denom" "numer+prox"], title = "LogDet Div.")
-p2 = plot(sval_traj', legend = :none, title = "trajectory of svdvals")
-plot(p1, p2)
 
+# 勾配法との比較
+lfdpp_grad1, logp_grad1 = mle_grad(LFDPP(Vinit), samples, η = 0.5)
+lfdpp_grad5, logp_grad5 = mle_grad(LFDPP(Vinit), samples, η = 0.1)
+
+plot([logp1, logp_grad1])
+plot([logp5, logp_grad5])
