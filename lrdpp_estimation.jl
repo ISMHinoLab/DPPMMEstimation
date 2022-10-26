@@ -5,21 +5,64 @@ using Random
 using ProgressMeter
 using Plots
 
+using BenchmarkTools
 
-function compute_loglik(V, samples)
+
+mutable struct LFDPP
+    V :: Matrix{Float64}
+    N :: Int64
+    K :: Int64
+
+    function LFDPP(V)
+        N, K = size(V)
+        new(V, N, K)
+    end
+end
+
+
+function compute_loglik(lfdpp :: LFDPP, samples)
+    logZ = logdet(lfdpp.V' * lfdpp.V + I)
     try
-        return sum([logpdf(DeterminantalPointProcess(V * V'), sample) for sample in samples])
+        return sum([logdet(lfdpp.V[sample, :] * lfdpp.V[sample, :]') for sample in samples]) - length(samples) * logZ
     catch
         return -Inf
     end
 end
 
-function update_V(Vₜ, samples, U_samples, M, ρₜ = 1.0)
+function update_V(Vₜ, samples, ρₜ = 1.0)
+    M = length(samples)
+    U_samples = [I(N)[sample, :] for sample in samples]
+
     Lₜ = Vₜ * Vₜ'
+
     term1 = -mean([U_samples[m]' * inv(Lₜ[samples[m], samples[m]]) * U_samples[m] for m in 1:M])
     term2 = inv(Lₜ + I)
+    #term1 = -mean([U_samples[m]' * inv(Vₜ[samples[m], :] * Vₜ[samples[m], :]') * U_samples[m] for m in 1:M])
+    #term2 = I - Vₜ * inv(I + Vₜ' * Vₜ) * Vₜ'
     return ρₜ * (term1 + term2 + ρₜ * I) \ Vₜ
 end
+
+function mle(lfdpp :: LFDPP, samples; n_iter = 100, ρ = 1.0, show_progress = true)
+    # MLE for a low-rank factorized DPP by the proposed method
+    prog = Progress(n_iter - 1, enabled = show_progress)
+
+    logliks = zeros(n_iter)
+    logliks[1] = compute_loglik(lfdpp, samples)
+
+    for i in 2:n_iter
+        try
+            lfdpp_next = LFDPP(update_V(lfdpp.V, samples, ρ))
+            logliks[i] = compute_loglik(lfdpp_next, samples)
+            lfdpp = lfdpp_next
+
+            next!(prog)
+        catch
+            break
+        end
+    end
+    return lfdpp, logliks
+end
+
 
 function logdet_divergence(X, Y)
     return logdet(Y) - logdet(X) + tr(inv(Y) * X) - size(Y, 1)
@@ -37,14 +80,15 @@ L = rand(Wishart(N, diagm(1:N) / N)) / N
 
 dpp = DeterminantalPointProcess(L)
 samples = rand(dpp, M)
+K = min(maximum(length.(samples)), N)
 
 Linit = rand(Wishart(10N, diagm(10 * ones(N)))) / 10N
 #Linit = rand(Wishart(10N, diagm(5 * ones(N)))) / 10N
 eig_init = eigen(Linit)
 Vinit = eig_init.vectors[:, end - K + 1:end] * Diagonal(sqrt.(eig_init.values[end - K + 1:end]))
 
-U_samples = [I(N)[sample, :] for sample in samples]
 
+lfdpp, logp = mle(LFDPP(Vinit), samples, ρ = 1.0)
 
 Vest = Vinit
 n_iter = 100
