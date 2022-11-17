@@ -8,6 +8,36 @@ using Plots
 using BenchmarkTools
 
 
+mutable struct DPP
+    L :: Matrix{Float64}
+    N :: Int64
+
+    function DPP(L)
+        N = size(L, 1)
+        new(L, N)
+    end
+end
+
+struct DPPResult
+    samples :: Vector{Vector{Int64}}
+    dpp :: DPP
+    loglik :: Float64
+    dpp_trace :: Vector{DPP}
+    loglik_trace :: Vector{Float64}
+    cputime_trace :: Vector{Float64}
+    n_iter :: Int64
+
+    function DPPResult(dpp_trace, samples)
+        loglik_trace = map(dpp -> compute_loglik(dpp, samples), dpp_trace)
+        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, zeros(), length(dpp_trace))
+    end
+
+    function DPPResult(dpp_trace, samples, cputime_trace)
+        loglik_trace = map(dpp -> compute_loglik(dpp, samples), dpp_trace)
+        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, cputime_trace, length(dpp_trace))
+    end
+end
+
 mutable struct LFDPP
     V :: Matrix{Float64}
     N :: Int64
@@ -18,7 +48,6 @@ mutable struct LFDPP
         new(V, N, K)
     end
 end
-
 
 struct LFDPPResult
     samples :: Vector{Vector{Int64}}
@@ -41,6 +70,15 @@ struct LFDPPResult
 end
 
 
+function compute_loglik(dpp :: DPP, samples)
+    logZ = logdet(dpp.L + I)
+    try
+        return sum([logdet(dpp.L[sample, sample]) for sample in samples]) - length(samples) * logZ
+    catch
+        return -Inf
+    end
+end
+
 function compute_loglik(lfdpp :: LFDPP, samples)
     logZ = logdet(lfdpp.V' * lfdpp.V + I)
     try
@@ -60,6 +98,17 @@ function update_V(V, samples, ρ = 1.0)
     return ((term1 + term2 + ρ * I) / ρ) \ V
 end
 
+function update_L(L, samples, ρ = 1.0)
+    # update rule of the fixed-point method
+    M = length(samples)
+    U_samples = [I(N)[sample, :] for sample in samples]
+
+    term1 = mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M])
+    term2 = -inv(L + I)
+    Δ = term1 + term2
+    return L + ρ * L * Δ * L
+end
+
 function grad_V(V, samples)
     # gradient of the mean log-likelihood by V
     M = length(samples)
@@ -69,7 +118,6 @@ function grad_V(V, samples)
     term2 = -(I - V * inv(I + V' * V) * V')
     return 2 * (term1 + term2) * V
 end
-
 
 function mle(lfdpp :: LFDPP, samples; n_iter = 100, ρ = 1.0, show_progress = true)
     # MLE for a low-rank factorized DPP by the proposed method
@@ -108,7 +156,22 @@ function mle_grad(lfdpp :: LFDPP, samples; n_iter = 100, η = 1.0, show_progress
     return LFDPPResult(lfdpp_trace, samples, cumsum(cputime_trace))
 end
 
+function mle(dpp :: DPP, samples; n_iter = 100, ρ = 1.0, show_progress = true)
+    # MLE for a full-rank DPP by the fixed-point method (Mariet & Sra, 2015)
+    prog = Progress(n_iter - 1, enabled = show_progress)
 
+    dpp_trace = Vector{DPP}(undef, n_iter)
+    dpp_trace[1] = dpp
+    cputime_trace = zeros(n_iter)
+
+    for i in 2:n_iter
+        cputime_trace[i] = @elapsed begin
+            dpp_trace[i] = DPP(update_L(dpp_trace[i - 1].L, samples, ρ))
+        end
+        next!(prog)
+    end
+    return DPPResult(dpp_trace, samples, cumsum(cputime_trace))
+end
 
 function logdet_divergence(X, Y)
     return logdet(Y) - logdet(X) + tr(inv(Y) * X) - size(Y, 1)
@@ -122,17 +185,18 @@ M = 1000
 #L = rand(Wishart(10N, diagm(1:N) / 10)) / 10N
 #L = rand(Wishart(N, diagm(10.0 .^ range(-3, 1, length = N)))) / N
 #L = rand(Wishart(N, diagm(1:N) / N)) / N
-V = rand(Uniform(0, 10), (N, round(Int, N/2))) / N; L = V * V'
+#V = rand(Uniform(0, 10), (N, round(Int, N/2))) / N; L = V * V'
+V = rand(Uniform(0, 10), (N, round(Int, N))) / N; L = V * V'
 
 dpp = DeterminantalPointProcess(L)
 samples = rand(dpp, M)
 K = min(maximum(length.(samples)) + 1, N)
 
-emp_probs = [mean(in.(n, samples)) for n in 1:N]
-init_diag = emp_probs ./ (1 .- emp_probs)
+#emp_probs = [mean(in.(n, samples)) for n in 1:N]
+#init_diag = emp_probs ./ (1 .- emp_probs)
 #Linit = rand(Wishart(10N, diagm(10 * init_diag))) / 10N
-Linit = rand(Wishart(10N, diagm(10 * ones(N)))) / 10N
-#Linit = rand(Wishart(10N, diagm(5 * ones(N)))) / 10N
+#Linit = rand(Wishart(10N, diagm(10 * ones(N)))) / 10N
+Linit = rand(Wishart(10N, diagm(5 * ones(N)))) / 10N
 #Linit = rand(Wishart(10N, diagm(ones(N)))) / 10N
 #Vinit = rand(Uniform(0, √2), (N, round(Int, N/2))) / N; Linit = Vinit * Vinit' * 1e2
 eig_init = eigen(Linit)
@@ -186,3 +250,12 @@ plot!(lfdpp_grad2.cputime_trace, lfdpp_grad2.loglik_trace)
 plot(lfdpp_res5.cputime_trace, lfdpp_res5.loglik_trace)
 plot!(lfdpp_grad5.cputime_trace, lfdpp_grad5.loglik_trace)
 
+
+# fixed-point method
+dpp_res1 = mle(DPP(Linit), samples, ρ = 1.0)
+p = plot([lfdpp_res1.cputime_trace, lfdpp_grad1.cputime_trace, dpp_res1.cputime_trace],
+          [lfdpp_res1.loglik_trace, lfdpp_grad1.loglik_trace, dpp_res1.loglik_trace],
+          ylabel = "log-likelihood", xlabel = "CPU time", legend = :bottomright, dpi = 200,
+          ylims = (loglik_min, loglik_max),
+          label = ["proposed" "gradient ascent" "fixed-point"], margin = 5Plots.mm, lw = 2)
+hline!(p, [loglik_truth], label = "true param.", lw = 2)
