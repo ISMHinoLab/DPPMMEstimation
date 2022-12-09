@@ -90,6 +90,30 @@ function compute_loglik(lfdpp :: LFDPP, samples)
     end
 end
 
+function compute_minorizer_fp(L, Lt, samples)
+    # compute value of the minorizer of the fixed-point algorithm
+    M = length(samples)
+    U_samples = [sparse(I(N)[sample, :]) for sample in samples]
+
+    term1 = mean([logdet(Lt[samples[m], samples[m]]) -
+                  tr(inv(L) * Lt * U_samples[m]' * inv(Lt[samples[m], samples[m]]) * U_samples[m] * Lt) +
+                  length(samples[m]) for m in 1:M])
+    term2 = -logdet(L) + logdet(Lt) - logdet(Lt + I) - tr(inv(Lt + I) * (inv(L) * Lt - I))
+    return term1 + term2
+end
+
+function compute_minorizer_mm(L, Lt, samples)
+    # compute value of the proposed minorizer
+    M = length(samples)
+    U_samples = [sparse(I(N)[sample, :]) for sample in samples]
+
+    term1 = mean([logdet(Lt[samples[m], samples[m]]) -
+                  tr(inv(L) * Lt * U_samples[m]' * inv(Lt[samples[m], samples[m]]) * U_samples[m] * Lt) +
+                  length(samples[m]) for m in 1:M])
+    term2 = -logdet(Lt + I) - tr(inv(Lt + I) * (L - Lt))
+    return term1 + term2
+end
+
 function update_L(L, samples, ρ = 1.0)
     # update rule of the fixed-point method
     M = length(samples)
@@ -238,3 +262,13 @@ p = plot([dpp_fp.cputime_trace, lfdpp_grad.cputime_trace, dpp_mm.cputime_trace],
           ylims = (loglik_min, loglik_max),
           label = ["fixed-point" "gradient" "MM"], margin = 5Plots.mm, lw = 2)
 hline!(p, [loglik_truth], label = "true param.", lw = 2)
+
+
+# check minorizing functions
+X = (V -> V * V')(randn(N, N)) / N
+i = 5
+L_tests = [dpp_fp.dpp_trace[i].L + ϵ * X for ϵ in range(-0.01, 0.01, length = 50)]
+ll = [compute_loglik(DPP(L), samples) / M for L in L_tests]
+ll_fp = [compute_minorizer_fp(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
+ll_mm = [compute_minorizer_mm(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
+plot([ll ll_fp ll_mm])
