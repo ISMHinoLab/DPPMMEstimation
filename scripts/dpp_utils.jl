@@ -136,8 +136,8 @@ function update_L_mm(L, samples)
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
-    Q = Symmetric(L * mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) * L)
-    G = Symmetric(inv(L + I))
+    Q = L * mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) * L
+    G = inv(L + I)
     A = zeros(size(L))
     #return arec(A, G, Q)[1]
     return solve_arec(A, G, Q)
