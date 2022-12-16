@@ -68,9 +68,18 @@ struct LFDPPResult
 end
 
 
+function solve_arec(A :: AbstractMatrix, G :: AbstractMatrix, Q :: AbstractMatrix)
+    H = [A -G; -Q -A']
+    S = schur(H)
+    select = real(S.values) .< 0
+    ordschur!(S, select)
+    m, n = size(S.Z)
+    return @views S.Z[Int(m/2 + 1):m, 1:Int(n/2)] * inv(S.Z[1:Int(m/2), 1:Int(n/2)])
+end
+
 function compute_loglik(dpp :: DPP, samples)
-    logZ = logdet(dpp.L + I)
     try
+        logZ = logdet(dpp.L + I)
         return sum([logdet(dpp.L[sample, sample]) for sample in samples]) - length(samples) * logZ
     catch
         return -Inf
@@ -78,8 +87,8 @@ function compute_loglik(dpp :: DPP, samples)
 end
 
 function compute_loglik(lfdpp :: LFDPP, samples)
-    logZ = logdet(lfdpp.V' * lfdpp.V + I)
     try
+        logZ = logdet(lfdpp.V' * lfdpp.V + I)
         return sum([logdet(lfdpp.V[sample, :] * lfdpp.V[sample, :]') for sample in samples]) - length(samples) * logZ
     catch
         return -Inf
@@ -130,7 +139,8 @@ function update_L_mm(L, samples)
     Q = Symmetric(L * mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) * L)
     G = Symmetric(inv(L + I))
     A = zeros(size(L))
-    return arec(A, G, Q)[1]
+    #return arec(A, G, Q)[1]
+    return solve_arec(A, G, Q)
 end
 
 function grad_V(V, samples)
