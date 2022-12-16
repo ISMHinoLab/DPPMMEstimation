@@ -74,7 +74,8 @@ function solve_arec(A :: AbstractMatrix, G :: AbstractMatrix, Q :: AbstractMatri
     select = real(S.values) .< 0
     ordschur!(S, select)
     m, n = size(S.Z)
-    return @views S.Z[Int(m/2 + 1):m, 1:Int(n/2)] * inv(S.Z[1:Int(m/2), 1:Int(n/2)])
+    @views X = S.Z[Int(m/2 + 1):m, 1:Int(n/2)] * inv(S.Z[1:Int(m/2), 1:Int(n/2)])
+    return (X + X') / 2
 end
 
 function compute_loglik(dpp :: DPP, samples)
@@ -130,17 +131,17 @@ function update_L(L, samples, ρ = 1.0)
     return L + ρ * L * Δ * L
 end
 
-function update_L_mm(L, samples)
+function update_L_mm(L, samples; ϵ = 1e-10)
     # update rule of the MM algorithm.
 
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
-    Q = L * mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) * L
-    G = inv(L + I)
+    Q = Symmetric(L * mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) * L)
+    G = Symmetric(inv(L + I))
     A = zeros(size(L))
-    #return arec(A, G, Q)[1]
-    return solve_arec(A, G, Q)
+    return arec(A, G, Q + ϵ * I)[1]
+    #return solve_arec(A, G, Q + ϵ * I)
 end
 
 function grad_V(V, samples)
@@ -205,7 +206,7 @@ function mle_grad(lfdpp :: LFDPP, samples; n_iter = 100, show_progress = true,
     return LFDPPResult(lfdpp_trace, samples, cumsum(cputime_trace))
 end
 
-function mle_mm(dpp :: DPP, samples; n_iter = 100, show_progress = true)
+function mle_mm(dpp :: DPP, samples; n_iter = 100, show_progress = true, ϵ = 1e-10)
     # MLE for a full-rank DPP by the MM algorithm
     prog = Progress(n_iter - 1, enabled = show_progress)
 
@@ -215,7 +216,7 @@ function mle_mm(dpp :: DPP, samples; n_iter = 100, show_progress = true)
 
     for i in 2:n_iter
         cputime_trace[i] = @elapsed begin
-            dpp_trace[i] = DPP(update_L_mm(dpp_trace[i - 1].L, samples))
+            dpp_trace[i] = DPP(update_L_mm(dpp_trace[i - 1].L, samples, ϵ = ϵ))
         end
         next!(prog)
     end
