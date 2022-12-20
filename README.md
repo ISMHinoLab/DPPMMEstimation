@@ -1,2 +1,2 @@
-# LowRankDPPEstimation
-Estimating low-rank parameters of determinantal point processes
+# DPPMMEstimation
+Estimating parameters of determinantal point processes by an MM algorithm
