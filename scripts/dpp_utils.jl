@@ -3,7 +3,7 @@ using SparseArrays
 using MatrixEquations
 using DeterminantalPointProcesses
 using ProgressMeter
-using Plots
+using UnicodePlots
 
 
 mutable struct DPP
@@ -25,14 +25,18 @@ struct DPPResult
     cputime_trace :: Vector{Float64}
     n_iter :: Int64
 
-    function DPPResult(dpp_trace, samples)
+    function DPPResult(samples, dpp_trace)
         loglik_trace = map(dpp -> compute_loglik(dpp, samples), dpp_trace)
         new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, zeros(), length(dpp_trace))
     end
 
-    function DPPResult(dpp_trace, samples, cputime_trace)
+    function DPPResult(samples, dpp_trace, cputime_trace)
         loglik_trace = map(dpp -> compute_loglik(dpp, samples), dpp_trace)
         new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, cputime_trace, length(dpp_trace))
+    end
+
+    function DPPResult(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, n_iter)
+        new(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, n_iter)
     end
 end
 
@@ -56,14 +60,18 @@ struct LFDPPResult
     cputime_trace :: Vector{Float64}
     n_iter :: Int64
 
-    function LFDPPResult(lfdpp_trace, samples)
+    function LFDPPResult(samples, lfdpp_trace)
         loglik_trace = map(lfdpp -> compute_loglik(lfdpp, samples), lfdpp_trace)
         new(samples, lfdpp_trace[end], loglik_trace[end], lfdpp_trace, loglik_trace, zeros(), length(lfdpp_trace))
     end
 
-    function LFDPPResult(lfdpp_trace, samples, cputime_trace)
+    function LFDPPResult(samples, lfdpp_trace, cputime_trace)
         loglik_trace = map(lfdpp -> compute_loglik(lfdpp, samples), lfdpp_trace)
         new(samples, lfdpp_trace[end], loglik_trace[end], lfdpp_trace, loglik_trace, cputime_trace, length(lfdpp_trace))
+    end
+
+    function LFDPPResult(samples, lfdpp, loglik, lfdpp_trace, loglik_trace, cputime_trace, n_iter)
+        new(samples, lfdpp, loglik, lfdpp_trace, loglik_trace, cputime_trace, n_iter)
     end
 end
 
@@ -154,24 +162,47 @@ function grad_V(V, samples)
     return 2 * (term1 + term2) * V
 end
 
-function mle(dpp :: DPP, samples; n_iter = 100, ρ = 1.0, show_progress = true)
+function mle(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, ρ = 1.0, show_progress = true, plotrange = 50)
     # MLE for a full-rank DPP by the fixed-point method (Mariet & Sra, 2015)
-    prog = Progress(n_iter - 1, enabled = show_progress)
+    prog = Progress(max_iter - 1)
 
-    dpp_trace = Vector{DPP}(undef, n_iter)
+    dpp_trace = Vector{DPP}(undef, max_iter)
     dpp_trace[1] = dpp
-    cputime_trace = zeros(n_iter)
+    cputime_trace = zeros(max_iter)
+    loglik_trace = zeros(max_iter)
+    loglik_trace[1] = compute_loglik(dpp_trace[1], samples)
 
-    for i in 2:n_iter
+    for i in 2:max_iter
         cputime_trace[i] = @elapsed begin
             dpp_trace[i] = DPP(update_L(dpp_trace[i - 1].L, samples, ρ))
         end
-        next!(prog)
+
+        loglik_trace[i] = compute_loglik(dpp_trace[i], samples)
+
+        if show_progress
+            startind = i >= plotrange ? i - plotrange + 1 : 1
+
+            print("\e[0;0H\e[2J")
+            next!(prog)
+            println()
+            print(lineplot(startind:i, loglik_trace[startind:i],
+                           title = "log-likelihood", xlim = (startind, i)))
+        end
+
+        rel_loglik = abs(loglik_trace[i] - loglik_trace[i - 1]) / abs(loglik_trace[i - 1])
+        if rel_loglik < tol
+            deleteat!(dpp_trace, (i + 1):max_iter)
+            deleteat!(loglik_trace, (i + 1):max_iter)
+            deleteat!(cputime_trace, (i + 1):max_iter)
+            break
+        end
     end
-    return DPPResult(dpp_trace, samples, cumsum(cputime_trace))
+    n_iter = length(dpp_trace)
+    return DPPResult(samples, dpp_trace[end], loglik_trace[end],
+                     dpp_trace, loglik_trace, cumsum(cputime_trace), n_iter)
 end
 
-function mle_grad(lfdpp :: LFDPP, samples; n_iter = 100, show_progress = true,
+function mle_grad(lfdpp :: LFDPP, samples; tol = 1e-5, max_iter = 100, show_progress = true, plotrange = 50,
                   η = 1e-8, ϵ = 1e-8, α = 0.9, β = 0.999)
     # MLE for a low-rank factorized DPP by Adam-adjusted gradient ascent
     # η: learning rate
@@ -179,15 +210,17 @@ function mle_grad(lfdpp :: LFDPP, samples; n_iter = 100, show_progress = true,
     # α: mixing parameter of Momentum
     # β: mixing parameter of RMSProp
 
-    prog = Progress(n_iter - 1, enabled = show_progress)
+    prog = Progress(max_iter - 1, enabled = show_progress)
 
-    lfdpp_trace = Vector{LFDPP}(undef, n_iter)
+    lfdpp_trace = Vector{LFDPP}(undef, max_iter)
     lfdpp_trace[1] = lfdpp
-    cputime_trace = zeros(n_iter)
+    cputime_trace = zeros(max_iter)
+    loglik_trace = zeros(max_iter)
+    loglik_trace[1] = compute_loglik(lfdpp_trace[1], samples)
 
     historical_grad = zeros(lfdpp.N, lfdpp.K)
     historical_velocity = zeros(lfdpp.N, lfdpp.K)
-    for i in 2:n_iter
+    for i in 2:max_iter
         cputime_trace[i] = @elapsed begin
             gradV = -grad_V(lfdpp_trace[i - 1].V, samples)
 
@@ -201,24 +234,69 @@ function mle_grad(lfdpp :: LFDPP, samples; n_iter = 100, show_progress = true,
             lfdpp_trace[i] = LFDPP(Vnext)
         end
 
-        next!(prog)
-    end
-    return LFDPPResult(lfdpp_trace, samples, cumsum(cputime_trace))
-end
+        loglik_trace[i] = compute_loglik(lfdpp_trace[i], samples)
 
-function mle_mm(dpp :: DPP, samples; n_iter = 100, show_progress = true, ϵ = 1e-10)
-    # MLE for a full-rank DPP by the MM algorithm
-    prog = Progress(n_iter - 1, enabled = show_progress)
+        if show_progress
+            startind = i >= plotrange ? i - plotrange + 1 : 1
 
-    dpp_trace = Vector{DPP}(undef, n_iter)
-    dpp_trace[1] = dpp
-    cputime_trace = zeros(n_iter)
+            print("\e[0;0H\e[2J")
+            next!(prog)
+            println()
+            print(lineplot(startind:i, loglik_trace[startind:i],
+                           title = "log-likelihood", xlim = (startind, i)))
+        end
 
-    for i in 2:n_iter
-        cputime_trace[i] = @elapsed begin
-            dpp_trace[i] = DPP(update_L_mm(dpp_trace[i - 1].L, samples, ϵ = ϵ))
+        rel_loglik = abs(loglik_trace[i] - loglik_trace[i - 1]) / abs(loglik_trace[i - 1])
+        if rel_loglik < tol
+            deleteat!(lfdpp_trace, (i + 1):max_iter)
+            deleteat!(loglik_trace, (i + 1):max_iter)
+            deleteat!(cputime_trace, (i + 1):max_iter)
+            break
         end
         next!(prog)
     end
-    return DPPResult(dpp_trace, samples, cumsum(cputime_trace))
+    n_iter = length(lfdpp_trace)
+    return LFDPPResult(samples, lfdpp_trace[end], loglik_trace[end],
+                       lfdpp_trace, loglik_trace, cumsum(cputime_trace), n_iter)
+end
+
+function mle_mm(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, show_progress = true, ϵ = 1e-10, plotrange = 50)
+    # MLE for a full-rank DPP by the MM algorithm
+    prog = Progress(max_iter - 1, enabled = show_progress)
+
+    dpp_trace = Vector{DPP}(undef, max_iter)
+    dpp_trace[1] = dpp
+    cputime_trace = zeros(max_iter)
+    loglik_trace = zeros(max_iter)
+    loglik_trace[1] = compute_loglik(dpp_trace[1], samples)
+
+    for i in 2:max_iter
+        cputime_trace[i] = @elapsed begin
+            dpp_trace[i] = DPP(update_L_mm(dpp_trace[i - 1].L, samples, ϵ = ϵ))
+        end
+
+        loglik_trace[i] = compute_loglik(dpp_trace[i], samples)
+
+        if show_progress
+            startind = i >= plotrange ? i - plotrange + 1 : 1
+
+            print("\e[0;0H\e[2J")
+            next!(prog)
+            println()
+            print(lineplot(startind:i, loglik_trace[startind:i],
+                           title = "log-likelihood", xlim = (startind, i)))
+        end
+
+        rel_loglik = abs(loglik_trace[i] - loglik_trace[i - 1]) / abs(loglik_trace[i - 1])
+        if rel_loglik < tol
+            deleteat!(dpp_trace, (i + 1):max_iter)
+            deleteat!(loglik_trace, (i + 1):max_iter)
+            deleteat!(cputime_trace, (i + 1):max_iter)
+            break
+        end
+        next!(prog)
+    end
+    n_iter = length(dpp_trace)
+    return DPPResult(samples, dpp_trace[end], loglik_trace[end],
+                     dpp_trace, loglik_trace, cumsum(cputime_trace), n_iter)
 end
