@@ -155,7 +155,7 @@ end
 function grad_V(V, samples)
     # gradient of the mean log-likelihood by V
     M = length(samples)
-    U_samples = [I(N)[sample, :] for sample in samples]
+    U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
     term1 = mean([U_samples[m]' * inv(V[samples[m], :] * V[samples[m], :]') * U_samples[m] for m in 1:M])
     term2 = -(I - V * inv(I + V' * V) * V')
