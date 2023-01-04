@@ -253,7 +253,6 @@ function mle_grad(lfdpp :: LFDPP, samples; tol = 1e-5, max_iter = 100, show_prog
             deleteat!(cputime_trace, (i + 1):max_iter)
             break
         end
-        next!(prog)
     end
     n_iter = length(lfdpp_trace)
     return LFDPPResult(samples, lfdpp_trace[end], loglik_trace[end],
@@ -294,7 +293,6 @@ function mle_mm(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, show_progress =
             deleteat!(cputime_trace, (i + 1):max_iter)
             break
         end
-        next!(prog)
     end
     n_iter = length(dpp_trace)
     return DPPResult(samples, dpp_trace[end], loglik_trace[end],
