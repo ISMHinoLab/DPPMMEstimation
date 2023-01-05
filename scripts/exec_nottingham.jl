@@ -1,3 +1,4 @@
+using Base.Filesystem
 using LinearAlgebra
 using Distributions
 using DeterminantalPointProcesses
@@ -47,6 +48,8 @@ dpp_mm = mle_mm(DPP(Linit), samples, max_iter = max_iter, tol = tol);
 
 
 # check learning curves
+outdir = joinpath("$(@__DIR__)", "..", "output")
+mkpath(outdir)
 loglik_min = minimum(vcat(dpp_fp.loglik_trace, lfdpp_grad.loglik_trace, dpp_mm.loglik_trace))
 loglik_max = maximum(vcat(dpp_fp.loglik_trace, lfdpp_grad.loglik_trace, dpp_mm.loglik_trace))
 p = plot(dpp_fp.cputime_trace, dpp_fp.loglik_trace,
