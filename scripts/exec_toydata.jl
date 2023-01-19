@@ -83,8 +83,24 @@ Plots.savefig(p, joinpath(outdir, @sprintf("toy_log10_lldiffs_%.0e.pdf", tol)))
 # check minorizing functions
 X = (V -> V * V')(randn(N, N)) / N
 i = 5
-L_tests = [dpp_fp.dpp_trace[i].L + ϵ * X for ϵ in range(-0.01, 0.01, length = 50)]
+δs = range(-0.01, 0.01, length = 50)
+L_tests = [dpp_fp.dpp_trace[i].L + δ * X for δ in δs]
 ll = [compute_loglik(DPP(L), samples) / M for L in L_tests]
 ll_fp = [compute_minorizer_fp(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
 ll_mm = [compute_minorizer_mm(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
-plot([ll ll_fp ll_mm])
+p1 = plot(δs, [ll ll_fp ll_mm],
+          ylabel = "objective value", xlabel = "δ", legend = :topright, dpi = 200,
+          label = ["f(L) (objective)" "h(L|Lt) (fixed-point)" "g(L|Lt) (MM)"],
+          margin = 5Plots.mm, lw = 2, size = (360, 480))
+
+δs = range(-0.05, 1.0, length = 50)
+L_tests = [dpp_fp.dpp_trace[i].L + δ * X for δ in δs]
+ll = [compute_loglik(DPP(L), samples) / M for L in L_tests]
+ll_fp = [compute_minorizer_fp(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
+ll_mm = [compute_minorizer_mm(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
+p2 = plot(δs, [ll ll_fp ll_mm],
+          ylabel = "objective value", xlabel = "δ", legend = :topright, dpi = 200,
+          label = ["f(L) (objective)" "h(L|Lt) (fixed-point)" "g(L|Lt) (MM)"],
+          margin = 5Plots.mm, lw = 2, size = (360, 480))
+p = plot(p1, p2, size = (800, 600))
+Plots.savefig(p, joinpath(outdir, "minorizer_behaviors.pdf"))
