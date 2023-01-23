@@ -47,7 +47,7 @@ for category in categories
     dpp_fp = mle(DPP(Linit), samples, ρ = 1.0, max_iter = max_iter, tol = tol);
 
     # gradient ascent
-    lfdpp_grad = mle_grad(LFDPP(Vinit), samples, η = 1e-8, ϵ = 1e-8, max_iter = max_iter, tol = tol);
+    lfdpp_grad = mle_grad(LFDPP(Vinit), samples, η = 1e-9, ϵ = 1e-8, max_iter = max_iter, tol = tol);
 
     # MM algorithm
     dpp_mm = mle_mm(DPP(Linit), samples, max_iter = max_iter, tol = tol);
