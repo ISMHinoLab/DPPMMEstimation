@@ -130,6 +130,7 @@ end
 
 function update_L(L, samples, ρ = 1.0)
     # update rule of the fixed-point method
+    N = size(L, 1)
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
@@ -141,7 +142,7 @@ end
 
 function update_L_mm(L, samples; ϵ = 1e-10)
     # update rule of the MM algorithm.
-
+    N = size(L, 1)
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
@@ -154,6 +155,7 @@ end
 
 function grad_V(V, samples)
     # gradient of the mean log-likelihood by V
+    N = size(V, 1)
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 

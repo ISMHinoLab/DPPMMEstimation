@@ -2,72 +2,149 @@ using LinearAlgebra
 using Distributions
 using DeterminantalPointProcesses
 using Random
-using Plots
-using Printf
+using CSV
 
 include("$(@__DIR__)/dpp_utils.jl")
+include("$(@__DIR__)/dpp_experimenter.jl")
+LinearAlgebra.BLAS.set_num_threads(Sys.CPU_THREADS - 1)
 
+n_exp = 5 # number of experiments
 
+# toy1: N = 32, M = 2500
+## WISHART initialization
 Random.seed!(1234)
-#N = 128
-#M = 5000
-N = 64
-M = 2500
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "wishart")
+results_toy1_wishart = map(1:n_exp) do i
+    N = 32
+    M = 2500
 
-#L = rand(Wishart(10N, diagm(1:N) / 10)) / 10N
-#L = rand(Wishart(N, diagm(10.0 .^ range(-3, 1, length = N)))) / N
-#L = rand(Wishart(N, diagm(1:N) / N)) / N
-V = rand(Uniform(0, 10), (N, round(Int, N))) / N; L = V * V'
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
 
-dpp = DeterminantalPointProcess(L)
-samples = rand(dpp, M)
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
 
-# initializing L
-#Minit = [mean(in.(n, samples) .* in.(m, samples)) for n in 1:N, m in 1:N]
-#Kinit = [n == m ? Minit[n, n] : max(Minit[n, n] * Minit[m, m] - Minit[n, m], 0) for n in 1:N, m in 1:N]
-#Linit = Kinit * inv(I - Kinit)
-#Linit = rand(Wishart(10N, diagm(10 * init_diag))) / 10N
-#init = rand(Wishart(10N, diagm(10 * ones(N)))) / 10N
-#Linit = rand(Wishart(10N, diagm(5 * ones(N)))) / 10N
-Linit = rand(Wishart(10N, diagm(ones(N)))) / 10N
-#Vinit = rand(Uniform(0, √2), (N, N)) / N; Linit = Vinit * Vinit'
-eig_init = eigen(Linit)
-Vinit = eig_init.vectors * Diagonal(sqrt.(eig_init.values))
+    Linit = initializer(N, init = :wishart)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
+end
 
-max_iter = 1000
-tol = 1e-4
-# fixed-point method
-dpp_fp = mle(DPP(Linit), samples, ρ = 1.0, max_iter = max_iter, tol = tol);
+## BASIC initialization
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "basic")
+results_toy1_basic = map(1:n_exp) do i
+    N = 32
+    M = 2500
 
-# gradient ascent
-lfdpp_grad = mle_grad(LFDPP(Vinit), samples, η = 1e-9, ϵ = 1e-8, max_iter = max_iter, tol = tol);
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
 
-# MM algorithm
-dpp_mm = mle_mm(DPP(Linit), samples, max_iter = max_iter, tol = tol);
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
 
-# check learning curves
+    Linit = initializer(N, init = :basic)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
+end
+
+# toy2: N = 32, M = 2500
+## WISHART initialization
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy2", "wishart")
+results_toy2_wishart = map(1:n_exp) do i
+    N = 32
+    M = 10000
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :wishart)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
+end
+
+## BASIC initialization
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy2", "basic")
+results_toy2_basic = map(1:n_exp) do i
+    N = 32
+    M = 10000
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :basic)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
+end
+
+# toy3: N = 128, M = 2500
+## WISHART initialization
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy3", "wishart")
+results_toy3_wishart = map(1:n_exp) do i
+    N = 128
+    M = 2500
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :wishart)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
+end
+
+## BASIC initialization
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy3", "basic")
+results_toy3_basic = map(1:n_exp) do i
+    N = 128
+    M = 2500
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :basic)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
+end
+
+
+dict_wishart = Dict(:init => :wishart)
+dict_basic = Dict(:init => :basic)
+df_toy1_wishart = summarize_to_df(results_toy1_wishart, dict_cols = dict_wishart)
+df_toy1_basic = summarize_to_df(results_toy1_basic, dict_cols = dict_basic)
+df_toy2_wishart = summarize_to_df(results_toy2_wishart, dict_cols = dict_wishart)
+df_toy2_basic = summarize_to_df(results_toy2_basic, dict_cols = dict_basic)
+df_toy3_wishart = summarize_to_df(results_toy3_wishart, dict_cols = dict_wishart)
+df_toy3_basic = summarize_to_df(results_toy3_basic, dict_cols = dict_basic)
+
+df_toy1 = vcat(df_toy1_wishart, df_toy1_basic)
+df_toy1[:, :setting] .= 1
+df_toy2 = vcat(df_toy2_wishart, df_toy2_basic)
+df_toy2[:, :setting] .= 2
+df_toy3 = vcat(df_toy3_wishart, df_toy3_basic)
+df_toy3[:, :setting] .= 3
 outdir = joinpath("$(@__DIR__)", "..", "output")
-loglik_truth = compute_loglik(DPP(L), samples)
-loglik_min = minimum(vcat(dpp_fp.loglik_trace, lfdpp_grad.loglik_trace, dpp_mm.loglik_trace))
-loglik_max = maximum(vcat(dpp_fp.loglik_trace, lfdpp_grad.loglik_trace, dpp_mm.loglik_trace))
-p = plot(dpp_fp.cputime_trace, dpp_fp.loglik_trace,
-         ylabel = "log-likelihood", xlabel = "CPU time (s)", legend = :bottomright, dpi = 200,
-         ylims = (loglik_min, loglik_max),
-         label = "fixed-point", margin = 5Plots.mm, lw = 2)
-plot!(p, lfdpp_grad.cputime_trace, lfdpp_grad.loglik_trace, lw = 2, label = "ADAM")
-plot!(p, dpp_mm.cputime_trace, dpp_mm.loglik_trace, lw = 2, label = "MM")
-Plots.hline!(p, [loglik_truth], label = "true param.", lw = 2)
-Plots.savefig(p, joinpath(outdir, @sprintf("toy_curves_%.0e.pdf", tol)))
+CSV.write(joinpath(outdir, "toy_results.csv"), vcat(df_toy1, df_toy2, df_toy3))
 
-p = plot(dpp_fp.cputime_trace, dpp_fp.loglik_trace,
-         ylabel = "log-likelihood", xlabel = "CPU time (s)", legend = :bottomright, dpi = 200,
-         xlims = (0, 1.5), ylims = (loglik_min, loglik_max),
-         label = "fixed-point", margin = 5Plots.mm, lw = 2)
-plot!(p, lfdpp_grad.cputime_trace, lfdpp_grad.loglik_trace, lw = 2, label = "ADAM")
-plot!(p, dpp_mm.cputime_trace, dpp_mm.loglik_trace, lw = 2, label = "MM")
-Plots.hline!(p, [loglik_truth], label = "true param.", lw = 2)
-Plots.savefig(p, joinpath(outdir, @sprintf("toy_curves_%.0e_scaled.pdf", tol)))
-
+#=
+# check other behaviors
+dpp_fp = results_toy1_wishart[1][:fp]
+lfdpp_grad = results_toy1_wishart[1][:grad]
+dpp_mm = results_toy1_wishart[1][:mm]
 
 # check convergent result
 loglik_diffs(loglik_trace) = log10.(abs.(loglik_trace[2:end] - loglik_trace[1:end-1])) - log10.(abs.(loglik_trace[1:end-1]))
@@ -76,9 +153,7 @@ p = plot(loglik_diffs(dpp_fp.loglik_trace),
          label = "fixed-point", margin = 5Plots.mm, lw = 2)
 plot!(p, loglik_diffs(lfdpp_grad.loglik_trace), lw = 2, label = "ADAM")
 plot!(p, loglik_diffs(dpp_mm.loglik_trace), lw = 2, label = "MM")
-Plots.savefig(p, joinpath(outdir, @sprintf("toy_log10_lldiffs_%.0e.pdf", tol)))
-
-
+#Plots.savefig(p, joinpath(outdir, "log10_lldiffs.pdf"))
 
 # check minorizing functions
 X = (V -> V * V')(randn(N, N)) / N
@@ -98,9 +173,10 @@ L_tests = [dpp_fp.dpp_trace[i].L + δ * X for δ in δs]
 ll = [compute_loglik(DPP(L), samples) / M for L in L_tests]
 ll_fp = [compute_minorizer_fp(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
 ll_mm = [compute_minorizer_mm(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
-p2 = plot(δs, [ll ll_fp ll_mm],
+p2 = plot(δs, [ll ll_fp ll_mm] ./ M,
           ylabel = "objective value", xlabel = "δ", legend = :topright, dpi = 200,
           label = ["f(L) (objective)" "h(L|Lt) (fixed-point)" "g(L|Lt) (MM)"],
           margin = 5Plots.mm, lw = 2, size = (360, 480))
 p = plot(p1, p2, size = (800, 600))
-Plots.savefig(p, joinpath(outdir, "minorizer_behaviors.pdf"))
+#Plots.savefig(p, joinpath(outdir, "minorizer_behaviors.pdf"))
+=#
