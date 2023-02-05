@@ -187,8 +187,8 @@ function mle(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, ρ = 1.0, show_pro
             print("\e[0;0H\e[2J")
             next!(prog)
             println()
-            print(lineplot(startind:i, loglik_trace[startind:i],
-                           title = "log-likelihood", xlim = (startind, i)))
+            print(lineplot(startind:i, loglik_trace[startind:i] / length(samples),
+                           title = "mean log-likelihood (Fixed-point)", xlim = (startind, i)))
         end
 
         rel_loglik = abs(loglik_trace[i] - loglik_trace[i - 1]) / abs(loglik_trace[i - 1])
@@ -244,8 +244,8 @@ function mle_grad(lfdpp :: LFDPP, samples; tol = 1e-5, max_iter = 100, show_prog
             print("\e[0;0H\e[2J")
             next!(prog)
             println()
-            print(lineplot(startind:i, loglik_trace[startind:i],
-                           title = "log-likelihood", xlim = (startind, i)))
+            print(lineplot(startind:i, loglik_trace[startind:i] / length(samples),
+                           title = "mean log-likelihood (Adam)", xlim = (startind, i)))
         end
 
         rel_loglik = abs(loglik_trace[i] - loglik_trace[i - 1]) / abs(loglik_trace[i - 1])
@@ -284,8 +284,8 @@ function mle_mm(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, show_progress =
             print("\e[0;0H\e[2J")
             next!(prog)
             println()
-            print(lineplot(startind:i, loglik_trace[startind:i],
-                           title = "log-likelihood", xlim = (startind, i)))
+            print(lineplot(startind:i, loglik_trace[startind:i] / length(samples),
+                           title = "mean log-likelihood (MM)", xlim = (startind, i)))
         end
 
         rel_loglik = abs(loglik_trace[i] - loglik_trace[i - 1]) / abs(loglik_trace[i - 1])
