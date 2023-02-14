@@ -4,7 +4,6 @@ using Random
 using DataFrames
 using CSV
 using Query
-using Printf
 
 include("$(@__DIR__)/dpp_utils.jl")
 include("$(@__DIR__)/dpp_experimenter.jl")
