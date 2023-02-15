@@ -46,3 +46,8 @@ All the program are implemented in Julia.
 - Anonymous author(s), "Minorization-Maximization for Learning Determinantal Point Processes," submitted to _UAI2023_.  
 - Mariet, Z., and Sra, S. "Fixed-point Algorithms for Learning Determinantal Point Processes," _ICML2015_.  
 - Gillenwater, J. A., Kulesza, A., Fox, E., and Taskar, B. "Expectation-Maximization for Learning Determinantal Point Processes," _NeurIPS2014_.
+- Nottingham Music Database: https://abc.sourceforge.net/NMD/
+- `jukedeck/nottingham-dataset`: https://github.com/jukedeck/nottingham-dataset
+
+# License
+This repository is released under the GNU GPLv3 license.
