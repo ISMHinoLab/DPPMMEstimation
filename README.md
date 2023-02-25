@@ -31,6 +31,19 @@ All the program are implemented in Julia.
 |`CSV`  |≥ 0.10.7|
 |`MAT`  |≥ 0.10.3|
 
+# How to Setup
+
+```sh
+> git clone https://github.com/ISMHinoLab/DPPMMEstimation.git && cd DPPMMEstimation
+> julia
+
+(@v1.8) pkg> activate .
+  Activating project at `/path/to/DPPMMEstimation`
+
+(DPPMMEstimation) pkg> instantiate
+# the mandatory packages will be installed
+# you can check the environment by `pkg> status`
+```
 
 # Codes for the Example
 
