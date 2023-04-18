@@ -18,10 +18,10 @@ df_amazon = CSV.read(joinpath(outdir, "amazon_results.csv"), DataFrame)
         :std_cputime = std(:cputime)
         :mean_mitertime = mean(:mean_itertime)
     end
-    groupby([:setting, :method])
-    @combine begin
-        :mean_mitertime = mean(:mean_mitertime) * 1000.0
-    end
+    #groupby([:setting, :method])
+    #@combine begin
+    #    :mean_mitertime = mean(:mean_mitertime) * 1000.0
+    #end
 end
 
 @chain df_nottingham begin

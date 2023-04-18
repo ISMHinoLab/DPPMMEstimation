@@ -15,7 +15,8 @@ function initializer(N; seed = nothing, init = :wishart)
     end
 
     if (init == :wishart || init == :Wishart || init == :WISHART)
-        Linit = rand(Wishart(5N, diagm(ones(N)))) / 5N
+        #Linit = rand(Wishart(5N, diagm(ones(N)))) / 5N
+        Linit = rand(Wishart(N, diagm(ones(N)))) / N
     elseif (init == :basic || init == :Basic || init == :BASIC)
         Vinit = rand(Uniform(0, √2), (N, N)) / N
         Linit = Vinit * Vinit'

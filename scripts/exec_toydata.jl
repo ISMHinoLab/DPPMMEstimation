@@ -8,7 +8,7 @@ include("$(@__DIR__)/dpp_utils.jl")
 include("$(@__DIR__)/dpp_experimenter.jl")
 LinearAlgebra.BLAS.set_num_threads(Sys.CPU_THREADS - 1)
 
-n_exp = 5 # number of experiments
+n_exp = 30 # number of experiments
 
 # toy1: N = 32, M = 2500
 ## WISHART initialization
@@ -156,27 +156,32 @@ plot!(p, loglik_diffs(dpp_mm.loglik_trace), lw = 2, label = "MM")
 #Plots.savefig(p, joinpath(outdir, "log10_lldiffs.pdf"))
 
 # check minorizing functions
+Random.seed!(1234)
+N = size(dpp_fp.dpp.L, 1)
+M = length(dpp_fp.samples)
 X = (V -> V * V')(randn(N, N)) / N
 i = 5
 δs = range(-0.01, 0.01, length = 50)
 L_tests = [dpp_fp.dpp_trace[i].L + δ * X for δ in δs]
-ll = [compute_loglik(DPP(L), samples) / M for L in L_tests]
-ll_fp = [compute_minorizer_fp(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
-ll_mm = [compute_minorizer_mm(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
+ll = [compute_loglik(DPP(L), dpp_fp.samples) / M for L in L_tests]
+ll_fp = [compute_minorizer_fp(L, dpp_fp.dpp_trace[i].L, dpp_fp.samples) for L in L_tests]
+ll_mm = [compute_minorizer_mm(L, dpp_fp.dpp_trace[i].L, dpp_fp.samples) for L in L_tests]
 p1 = plot(δs, [ll ll_fp ll_mm],
           ylabel = "objective value", xlabel = "δ", legend = :topright, dpi = 200,
           label = ["f(L) (objective)" "h(L|Lt) (fixed-point)" "g(L|Lt) (MM)"],
-          margin = 5Plots.mm, lw = 2, size = (360, 480))
+          margin = 5Plots.mm, lw = 2, size = (480, 360))
 
 δs = range(-0.05, 1.0, length = 50)
 L_tests = [dpp_fp.dpp_trace[i].L + δ * X for δ in δs]
-ll = [compute_loglik(DPP(L), samples) / M for L in L_tests]
-ll_fp = [compute_minorizer_fp(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
-ll_mm = [compute_minorizer_mm(L, dpp_fp.dpp_trace[i].L, samples) for L in L_tests]
+ll = [compute_loglik(DPP(L), dpp_fp.samples) / M for L in L_tests]
+ll_fp = [compute_minorizer_fp(L, dpp_fp.dpp_trace[i].L, dpp_fp.samples) for L in L_tests]
+ll_mm = [compute_minorizer_mm(L, dpp_fp.dpp_trace[i].L, dpp_fp.samples) for L in L_tests]
 p2 = plot(δs, [ll ll_fp ll_mm] ./ M,
           ylabel = "objective value", xlabel = "δ", legend = :topright, dpi = 200,
           label = ["f(L) (objective)" "h(L|Lt) (fixed-point)" "g(L|Lt) (MM)"],
-          margin = 5Plots.mm, lw = 2, size = (360, 480))
-p = plot(p1, p2, size = (800, 600))
+          margin = 5Plots.mm, lw = 2, size = (480, 360))
+p = plot(p1, p2, size = (960, 360))
 #Plots.savefig(p, joinpath(outdir, "minorizer_behaviors.pdf"))
+Plots.savefig(p1, joinpath(outdir, "minorizer_behaviors_neighbor.pdf"))
+Plots.savefig(p2, joinpath(outdir, "minorizer_behaviors_nonneighbor.pdf"))
 =#

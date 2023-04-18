@@ -15,7 +15,7 @@ train_samples = vcat([[findall(isone, traindata[j, :]) for j in 1:size(traindata
 train_nottingham = reshape([[findall(isone, traindata[j, :]) for j in 1:size(traindata, 1)]
                             for traindata in nottingham["traindata"]], :)
 
-n_exp = 5 # number of experiments
+n_exp = 30 # number of experiments
 
 ## WISHART initialization
 Random.seed!(1234)
@@ -52,7 +52,7 @@ outdir = joinpath("$(@__DIR__)", "..", "output")
 CSV.write(joinpath(outdir, "nottingham_results.csv"), vcat(df_nottingham_wishart, df_nottingham_basic))
 
 
-results_nottingham_basic = [load(outdir * "/nottingham/basic/$(i)/results.jld2") for i in 1:5]
+results_nottingham_basic = [load(outdir * "/nottingham/basic/$(i)/results.jld2") for i in 1:n_exp]
 df_nottingham_basic = summarize_to_df(results_nottingham_basic, dict_cols = dict_basic, str_keys = true)
-results_nottingham_wishart = [load(outdir * "/nottingham/wishart/$(i)/results.jld2") for i in 1:5]
-df_nottingham_wishart = summarize_to_df(results_nottingham_wishart, dict_cols = dict_basic, str_keys = true)
+results_nottingham_wishart = [load(outdir * "/nottingham/wishart/$(i)/results.jld2") for i in 1:n_exp]
+df_nottingham_wishart = summarize_to_df(results_nottingham_wishart, dict_cols = dict_wishart, str_keys = true)

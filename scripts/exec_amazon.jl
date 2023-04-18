@@ -15,7 +15,7 @@ categories = ["apparel", "bath", "bedding", "carseats", "decor", "diaper",
               "moms", "pottytrain", "safety", "strollers", "toys"]
 
 df_result = DataFrame()
-n_exp = 5 # number of experiments
+n_exp = 30 # number of experiments
 for category in categories
     reg_name = "1_100_100_100_$(category)_regs.csv"
     txt_name = "1_100_100_100_$(category)_item_names.txt"

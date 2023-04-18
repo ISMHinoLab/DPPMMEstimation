@@ -11,7 +11,7 @@
 !*.txt
 !*.md
 !*.mat
-!*.jld2
+#!*.jld2
 
 !*.jl
 !*.py
