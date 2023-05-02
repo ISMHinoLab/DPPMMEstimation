@@ -9,7 +9,7 @@ df_toy = CSV.read(joinpath(outdir, "toy_results.csv"), DataFrame)
 df_nottingham = CSV.read(joinpath(outdir, "nottingham_results.csv"), DataFrame)
 df_amazon = CSV.read(joinpath(outdir, "amazon_results.csv"), DataFrame)
 
-@chain df_toy begin
+df_toy_aggr = @chain df_toy begin
     groupby([:setting, :init, :method])
     @combine begin
         :mean_mloglik = mean(:mean_loglik)
@@ -24,7 +24,7 @@ df_amazon = CSV.read(joinpath(outdir, "amazon_results.csv"), DataFrame)
     #end
 end
 
-@chain df_nottingham begin
+df_nottingham_aggr = @chain df_nottingham begin
     groupby([:init, :method])
     @combine begin
         :mean_mloglik = mean(:mean_loglik)
@@ -36,7 +36,7 @@ end
     end
 end
 
-@chain df_amazon begin
+df_amazon_aggr = @chain df_amazon begin
     groupby([:category, :method])
     @combine begin
         :mean_mloglik = mean(:mean_loglik)
@@ -49,3 +49,19 @@ end
     end
     @subset(:mean_N .> 25)
 end
+
+
+p_amazon = @with df_amazon_aggr begin
+    fontscale = 1.5
+    scalefontsizes(fontscale)
+    p = groupedbar(:mean_cputime, group = :method, yerror = :std_cputime,
+                   xticks = (1:13, unique(:category)),
+                   xrotation = 60, xlabel = "Category",
+                   ylabel = "CPU time [s]", dpi = 200,
+                   tickfontsize = floor(8 * fontscale),
+                   labelfontsize = floor(11 * fontscale),
+                   margin = 10Plots.mm, size = (960, 540))
+    scalefontsizes()
+    p
+end
+savefig(p_amazon, joinpath(outdir, "cputimes_amazon.pdf"))

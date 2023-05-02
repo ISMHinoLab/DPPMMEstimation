@@ -8,6 +8,13 @@ using JLD2
 
 include("$(@__DIR__)/dpp_utils.jl")
 
+function cos_sim(x, y)
+    return dot(x, y) / (norm(x) * norm(y))
+end
+
+function eigvals_cos_sim(X, Y)
+    return cos_sim(eigvals(X), eigvals(Y))
+end
 
 function initializer(N; seed = nothing, init = :wishart)
     if !isnothing(seed)
@@ -36,7 +43,7 @@ function experimenter(
         outdir = joinpath("$(@__DIR__)", "..", "output"), # path for an output directory
         save_figures = true, # save figures or not
         save_objects = true, # save .jld2 objects or not
-        Ltruth = nothing # ground truth of the parameter; if passed, a reference line will be plotted
+        Ltruth = nothing # ground truth of the parameter; if passed, a reference line will be plotted and the cosine similarities will be calculated
     )
 
     # initial value for V s.t. L = VV'
@@ -54,6 +61,11 @@ function experimenter(
     dpp_mm = mle_mm(DPP(L), samples, ϵ = ϵ_mm, max_iter = max_iter, tol = tol, show_progress = show_progress)
 
     results = Dict(:fp => dpp_fp, :grad => lfdpp_grad, :mm => dpp_mm)
+    if !isnothing(Ltruth)
+        results[:fp_cossim] = eigvals_cos_sim(dpp_fp.dpp.L, Ltruth)
+        results[:grad_cossim] = eigvals_cos_sim((V -> V * V')(lfdpp_grad.lfdpp.V), Ltruth)
+        results[:mm_cossim] = eigvals_cos_sim(dpp_mm.dpp.L, Ltruth)
+    end
 
     if save_figures
         mkpath(outdir)
@@ -93,6 +105,14 @@ function summarize_to_df(results; dict_cols = nothing, str_keys = false)
                          cputime = [result[method].cputime_trace[end] for result in results],
                          mean_itertime = [result[method].cputime_trace[end] / result[method].n_iter for result in results],
                          method = method) for method in methods]...)
+
+    sim_methods = [:fp_cossim, :grad_cossim, :mm_cossim]
+    if all([sim in keys(result) for result in results, sim in sim_methods])
+        # if cosine similarities are stored, add a column
+        vec_col = reshape([result[sim] for result in results, sim in sim_methods], :)
+        df = hcat(df, DataFrame(cos_sim = vec_col))
+    end
+
     if !isnothing(dict_cols)
         for (k, v) in dict_cols
             df[:, k] .= v

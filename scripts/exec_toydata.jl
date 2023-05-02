@@ -37,7 +37,7 @@ results_toy1_basic = map(1:n_exp) do i
     M = 2500
 
     V = rand(Uniform(0, 10), (N, round(Int, N))) / N
-    L = V * V'
+    global L = V * V'
 
     dpp = DeterminantalPointProcess(L)
     samples = rand(dpp, M)
@@ -139,6 +139,7 @@ df_toy3 = vcat(df_toy3_wishart, df_toy3_basic)
 df_toy3[:, :setting] .= 3
 outdir = joinpath("$(@__DIR__)", "..", "output")
 CSV.write(joinpath(outdir, "toy_results.csv"), vcat(df_toy1, df_toy2, df_toy3))
+
 
 #=
 # check other behaviors
