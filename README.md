@@ -1,6 +1,6 @@
 # DPPMMEstimation
 Estimating parameters of determinantal point processes using an MM algorithm.
-Provides examples of the paper submitted to UAI'23:  
+Provides examples of the paper submitted to TMLR:  
 "Anonymous author(s), Minorization-Maximization for Learning Determinantal Point Processes"
 
 # Working Directory
@@ -56,7 +56,7 @@ All the program are implemented in Julia.
 
 
 # References
-- Anonymous author(s), "Minorization-Maximization for Learning Determinantal Point Processes," submitted to _UAI2023_.  
+- Anonymous author(s), "Minorization-Maximization for Learning Determinantal Point Processes," submitted to _TMLR_.  
 - Mariet, Z., and Sra, S. "Fixed-point Algorithms for Learning Determinantal Point Processes," _ICML2015_.  
 - Gillenwater, J. A., Kulesza, A., Fox, E., and Taskar, B. "Expectation-Maximization for Learning Determinantal Point Processes," _NeurIPS2014_.
 - Nottingham Music Database: https://abc.sourceforge.net/NMD/
