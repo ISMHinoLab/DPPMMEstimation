@@ -8,12 +8,8 @@ using JLD2
 
 include("$(@__DIR__)/dpp_utils.jl")
 
-function cos_sim(x, y)
-    return dot(x, y) / (norm(x) * norm(y))
-end
-
-function eigvals_cos_sim(X, Y)
-    return cos_sim(eigvals(X), eigvals(Y))
+function vn_div(X, Y)
+    return tr(X * log(X)) - tr(X * log(Y)) - tr(X) + tr(Y)
 end
 
 function initializer(N; seed = nothing, init = :wishart)
@@ -43,7 +39,8 @@ function experimenter(
         outdir = joinpath("$(@__DIR__)", "..", "output"), # path for an output directory
         save_figures = true, # save figures or not
         save_objects = true, # save .jld2 objects or not
-        Ltruth = nothing # ground truth of the parameter; if passed, a reference line will be plotted and the cosine similarities will be calculated
+        Ltruth = nothing, # ground truth of the parameter; if passed, a reference line will be plotted and the cosine similarities will be calculated
+        fontscale = 1.0
     )
 
     # initial value for V s.t. L = VV'
@@ -62,9 +59,9 @@ function experimenter(
 
     results = Dict(:fp => dpp_fp, :grad => lfdpp_grad, :mm => dpp_mm)
     if !isnothing(Ltruth)
-        results[:fp_cossim] = eigvals_cos_sim(dpp_fp.dpp.L, Ltruth)
-        results[:grad_cossim] = eigvals_cos_sim((V -> V * V')(lfdpp_grad.lfdpp.V), Ltruth)
-        results[:mm_cossim] = eigvals_cos_sim(dpp_mm.dpp.L, Ltruth)
+        results[:fp_vn] = vn_div(dpp_fp.dpp.L, Ltruth)
+        results[:grad_vn] = vn_div((V -> V * V')(lfdpp_grad.lfdpp.V), Ltruth)
+        results[:mm_vn] = vn_div(dpp_mm.dpp.L, Ltruth)
     end
 
     if save_figures
@@ -73,6 +70,7 @@ function experimenter(
         loglik_min = minimum(vcat(dpp_fp.loglik_trace, lfdpp_grad.loglik_trace, dpp_mm.loglik_trace)) / M
         loglik_max = maximum(vcat(dpp_fp.loglik_trace, lfdpp_grad.loglik_trace, dpp_mm.loglik_trace)) / M
 
+        scalefontsizes(fontscale)
         p = plot(dpp_fp.cputime_trace, dpp_fp.loglik_trace / M,
                  ylabel = "mean log-likelihood", xlabel = "CPU time (s)", legend = :bottomright, dpi = 200,
                  ylims = (loglik_min, loglik_max),
@@ -84,6 +82,7 @@ function experimenter(
             Plots.hline!(p, [loglik_truth / M], label = "true param.", lw = 2, ls = :dash, lc = :black)
         end
         Plots.savefig(p, joinpath(outdir, "curves.pdf"))
+        scalefontsizes()
     end
     if save_objects
         save(joinpath(outdir, "results.jld2"), results)
@@ -106,11 +105,11 @@ function summarize_to_df(results; dict_cols = nothing, str_keys = false)
                          mean_itertime = [result[method].cputime_trace[end] / result[method].n_iter for result in results],
                          method = method) for method in methods]...)
 
-    sim_methods = [:fp_cossim, :grad_cossim, :mm_cossim]
-    if all([sim in keys(result) for result in results, sim in sim_methods])
-        # if cosine similarities are stored, add a column
-        vec_col = reshape([result[sim] for result in results, sim in sim_methods], :)
-        df = hcat(df, DataFrame(cos_sim = vec_col))
+    div_methods = [:fp_vn, :grad_vn, :mm_vn]
+    if all([div in keys(result) for result in results, div in div_methods])
+        # if von Neumann divergences are stored, add a column
+        vec_col = reshape([result[div] for result in results, div in div_methods], :)
+        df = hcat(df, DataFrame(vn = vec_col))
     end
 
     if !isnothing(dict_cols)

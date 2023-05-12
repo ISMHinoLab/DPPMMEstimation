@@ -16,6 +16,8 @@ df_toy_aggr = @chain df_toy begin
         :std_mloglik = std(:mean_loglik)
         :mean_cputime = mean(:cputime)
         :std_cputime = std(:cputime)
+        :mean_vn = mean(:vn)
+        :std_vn = std(:vn)
         :mean_mitertime = mean(:mean_itertime)
     end
     #groupby([:setting, :method])
