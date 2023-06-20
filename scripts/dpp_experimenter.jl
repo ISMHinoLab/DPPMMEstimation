@@ -40,7 +40,8 @@ function experimenter(
         outdir = joinpath("$(@__DIR__)", "..", "output"), # path for an output directory
         save_figures = true, # save figures or not
         save_objects = true, # save .jld2 objects or not
-        Ltruth = nothing # ground truth of the parameter; if passed, a reference line will be plotted and the cosine similarities will be calculated
+        Ltruth = nothing, # ground truth of the parameter; if passed, a reference line will be plotted and the cosine similarities will be calculated
+        fontscale = 1.0
     )
 
     # initial value for V s.t. L = VV'
@@ -70,6 +71,7 @@ function experimenter(
         loglik_min = minimum(vcat(dpp_fp.loglik_trace, lfdpp_grad.loglik_trace, dpp_mm.loglik_trace)) / M
         loglik_max = maximum(vcat(dpp_fp.loglik_trace, lfdpp_grad.loglik_trace, dpp_mm.loglik_trace)) / M
 
+        scalefontsizes(fontscale)
         p = plot(dpp_fp.cputime_trace, dpp_fp.loglik_trace / M,
                  ylabel = "mean log-likelihood", xlabel = "CPU time (s)", legend = :bottomright, dpi = 200,
                  ylims = (loglik_min, loglik_max),
@@ -81,6 +83,7 @@ function experimenter(
             Plots.hline!(p, [loglik_truth / M], label = "true param.", lw = 2, ls = :dash, lc = :black)
         end
         Plots.savefig(p, joinpath(outdir, "curves.pdf"))
+        scalefontsizes()
     end
     if save_objects
         save(joinpath(outdir, "results.jld2"), results)
@@ -103,10 +106,9 @@ function summarize_to_df(results; dict_cols = nothing, str_keys = false)
                          mean_itertime = [result[method].cputime_trace[end] / result[method].n_iter for result in results],
                          method = method) for method in methods]...)
 
-    #sim_methods = [:fp_cossim, :grad_cossim, :mm_cossim]
     div_methods = [:fp_vn, :grad_vn, :mm_vn]
     if all([div in keys(result) for result in results, div in div_methods])
-        # if cosine similarities are stored, add a column
+        # if von Neumann divergences are stored, add a column
         vec_col = reshape([result[div] for result in results, div in div_methods], :)
         df = hcat(df, DataFrame(vn = vec_col))
     end

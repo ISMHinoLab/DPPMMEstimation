@@ -11,8 +11,7 @@ LinearAlgebra.BLAS.set_num_threads(Sys.CPU_THREADS - 1)
 n_exp = 30 # number of experiments
 
 # toy1: N = 32, M = 2500
-## WISHART initialization
-Random.seed!(1234)
+## WISHART initialization Random.seed!(1234)
 outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "wishart")
 results_toy1_wishart = map(1:n_exp) do i
     N = 32
@@ -37,7 +36,7 @@ results_toy1_basic = map(1:n_exp) do i
     M = 2500
 
     V = rand(Uniform(0, 10), (N, round(Int, N))) / N
-    global L = V * V'
+    L = V * V'
 
     dpp = DeterminantalPointProcess(L)
     samples = rand(dpp, M)
