@@ -205,7 +205,7 @@ function mle(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, ρ = 1.0, show_pro
 end
 
 function mle_grad(lfdpp :: LFDPP, samples; tol = 1e-5, max_iter = 100, show_progress = true, plotrange = 50,
-                  η = 1e-8, ϵ = 1e-8, α = 0.9, β = 0.999)
+                  η = 1e-3, ϵ = 1e-7, α = 0.9, β = 0.999)
     # MLE for a low-rank factorized DPP by Adam-adjusted gradient ascent
     # η: learning rate
     # ϵ: fudge factor for AdaGrad
@@ -226,7 +226,7 @@ function mle_grad(lfdpp :: LFDPP, samples; tol = 1e-5, max_iter = 100, show_prog
         cputime_trace[i] = @elapsed begin
             gradV = -grad_V(lfdpp_trace[i - 1].V, samples)
 
-            hisotrical_grad = β * historical_grad + (1 - β) * gradV .^ 2
+            historical_grad = β * historical_grad + (1 - β) * gradV .^ 2
             historical_velocity = α * historical_velocity + (1 - α) * gradV
             adj_hgrad = historical_grad ./ (1 - β ^ (i - 1))
             adj_hvelocity = historical_velocity ./ (1 - α ^ (i - 1))

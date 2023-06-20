@@ -8,12 +8,9 @@ using JLD2
 
 include("$(@__DIR__)/dpp_utils.jl")
 
-function cos_sim(x, y)
-    return dot(x, y) / (norm(x) * norm(y))
-end
-
-function eigvals_cos_sim(X, Y)
-    return cos_sim(eigvals(X), eigvals(Y))
+function vN_div(X, Y)
+    # von Neumann divergence
+    return tr(X * log(X)) - tr(X * log(Y)) - tr(X) + tr(Y)
 end
 
 function initializer(N; seed = nothing, init = :wishart)
@@ -38,7 +35,7 @@ function experimenter(
         max_iter = 1000, tol = 1e-4, # stopping criterion
         show_progress = true, # show progresses
         ρ = 1.0, # parameter for the fixed-point algorithm
-        η = 1e-9, ϵ = 1e-8, α = 0.9, β = 0.999, # parameters for ADAM
+        η = 1e-1, ϵ = 1e-7, α = 0.9, β = 0.999, # parameters for ADAM
         ϵ_mm = 1e-10, # machine epsilon for MM
         outdir = joinpath("$(@__DIR__)", "..", "output"), # path for an output directory
         save_figures = true, # save figures or not
@@ -62,9 +59,9 @@ function experimenter(
 
     results = Dict(:fp => dpp_fp, :grad => lfdpp_grad, :mm => dpp_mm)
     if !isnothing(Ltruth)
-        results[:fp_cossim] = eigvals_cos_sim(dpp_fp.dpp.L, Ltruth)
-        results[:grad_cossim] = eigvals_cos_sim((V -> V * V')(lfdpp_grad.lfdpp.V), Ltruth)
-        results[:mm_cossim] = eigvals_cos_sim(dpp_mm.dpp.L, Ltruth)
+        results[:fp_vn] = vN_div(dpp_fp.dpp.L, Ltruth)
+        results[:grad_vn] = vN_div((V -> V * V')(lfdpp_grad.lfdpp.V), Ltruth)
+        results[:mm_vn] = vN_div(dpp_mm.dpp.L, Ltruth)
     end
 
     if save_figures
@@ -106,11 +103,12 @@ function summarize_to_df(results; dict_cols = nothing, str_keys = false)
                          mean_itertime = [result[method].cputime_trace[end] / result[method].n_iter for result in results],
                          method = method) for method in methods]...)
 
-    sim_methods = [:fp_cossim, :grad_cossim, :mm_cossim]
-    if all([sim in keys(result) for result in results, sim in sim_methods])
+    #sim_methods = [:fp_cossim, :grad_cossim, :mm_cossim]
+    div_methods = [:fp_vn, :grad_vn, :mm_vn]
+    if all([div in keys(result) for result in results, div in div_methods])
         # if cosine similarities are stored, add a column
-        vec_col = reshape([result[sim] for result in results, sim in sim_methods], :)
-        df = hcat(df, DataFrame(cos_sim = vec_col))
+        vec_col = reshape([result[div] for result in results, div in div_methods], :)
+        df = hcat(df, DataFrame(vn = vec_col))
     end
 
     if !isnothing(dict_cols)

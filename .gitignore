@@ -17,7 +17,7 @@
 !*.r
 !*.stan
 
-!*.csv
+#!*.csv
 !*.gif
 !*.c3d
 
@@ -30,7 +30,7 @@
 #!*.log
 
 #!*.svg
-!*.pdf
+#!*.pdf
 #!*.png
 #!*.jpg
 #!*.jpeg
