@@ -147,11 +147,28 @@ function update_L_mm(L, samples; ϵ = 1e-10)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
     Q = Symmetric(L * mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) * L)
-    G = Symmetric(inv(L + I))
+    G = Symmetric(inv(L + I) + 0.02 * sign.(L))
     A = zeros(size(L))
     return arec(A, G, Q + ϵ * I)[1]
     #return solve_arec(A, G, Q + ϵ * I)
 end
+
+function update_L_amm(L, samples; ϵ = 1e-10, ϵ_μ = 0.1)
+    # update rule of the accelerated MM algorithm.
+    N = size(L, 1)
+    M = length(samples)
+    U_samples = [sparse(I(N)[sample, :]) for sample in samples]
+
+    H = mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M])
+    μ = min(max(-1, -inv(eigmax(H * (L + I)))) + ϵ_μ, 0)
+
+    Q = (1 + μ) * Symmetric(L * H * L)
+    G = Symmetric(inv(L + I) + μ * H)
+    A = zeros(size(L))
+    return arec(A, G, Q + ϵ * I)[1]
+    #return solve_arec(A, G, Q + ϵ * I)
+end
+
 
 function grad_V(V, samples)
     # gradient of the mean log-likelihood by V
@@ -261,19 +278,33 @@ function mle_grad(lfdpp :: LFDPP, samples; tol = 1e-5, max_iter = 100, show_prog
                        lfdpp_trace, loglik_trace, cumsum(cputime_trace), n_iter)
 end
 
-function mle_mm(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, show_progress = true, ϵ = 1e-10, plotrange = 50)
+function mle_mm(dpp :: DPP, samples;
+                tol = 1e-5, max_iter = 100,
+                accelerate = false, ϵ_μ = 0.1,
+                show_progress = true, ϵ = 1e-10,
+                plotrange = 50)
     # MLE for a full-rank DPP by the MM algorithm
     prog = Progress(max_iter - 1, enabled = show_progress)
 
     dpp_trace = Vector{DPP}(undef, max_iter)
+
     dpp_trace[1] = dpp
     cputime_trace = zeros(max_iter)
     loglik_trace = zeros(max_iter)
     loglik_trace[1] = compute_loglik(dpp_trace[1], samples)
 
+    #if accelerate
+    #    upd(L, samples; kwargs...) = update_L_amm(L, samples; ϵ_μ = ϵ_μ, kwargs...)
+    #else
+    #    upd(L, samples; kwargs...) = update_L_mm(L, samples, kwargs...)
+    #end
+    upd(L, samples; kwargs...) = ifelse(accelerate,
+                                        update_L_amm(L, samples; ϵ_μ = ϵ_μ, kwargs...),
+                                        update_L_mm(L, samples; kwargs...))
+
     for i in 2:max_iter
         cputime_trace[i] = @elapsed begin
-            dpp_trace[i] = DPP(update_L_mm(dpp_trace[i - 1].L, samples, ϵ = ϵ))
+            dpp_trace[i] = DPP(upd(dpp_trace[i - 1].L, samples, ϵ = ϵ))
         end
 
         loglik_trace[i] = compute_loglik(dpp_trace[i], samples)
