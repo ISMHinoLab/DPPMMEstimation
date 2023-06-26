@@ -23,20 +23,25 @@ struct DPPResult
     dpp_trace :: Vector{DPP}
     loglik_trace :: Vector{Float64}
     cputime_trace :: Vector{Float64}
+    μ_trace :: Vector{Float64}
     n_iter :: Int64
 
     function DPPResult(samples, dpp_trace)
         loglik_trace = map(dpp -> compute_loglik(dpp, samples), dpp_trace)
-        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, zeros(), length(dpp_trace))
+        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, zeros(), zeros(), length(dpp_trace))
     end
 
     function DPPResult(samples, dpp_trace, cputime_trace)
         loglik_trace = map(dpp -> compute_loglik(dpp, samples), dpp_trace)
-        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, cputime_trace, length(dpp_trace))
+        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, cputime_trace, zeros(), length(dpp_trace))
     end
 
     function DPPResult(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, n_iter)
-        new(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, n_iter)
+        new(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, zeros(), n_iter)
+    end
+
+    function DPPResult(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, μ_trace, n_iter)
+        new(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, μ_trace, n_iter)
     end
 end
 
@@ -140,32 +145,42 @@ function update_L(L, samples, ρ = 1.0)
     return L + ρ * L * Δ * L
 end
 
-function update_L_mm(L, samples; ϵ = 1e-10)
+function update_L_mm(L, samples; ϵ = 1e-10, μ_trace = nothing)
     # update rule of the MM algorithm.
     N = size(L, 1)
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
-    Q = Symmetric(L * mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) * L)
+    Q = Symmetric(L * (mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) + ϵ * I) * L)
     G = Symmetric(inv(L + I))
     A = zeros(size(L))
-    return arec(A, G, Q + ϵ * I)[1]
+
+    if !isnothing(μ_trace)
+        append!(μ_trace, [0.0])
+    end
+
+    return arec(A, G, Q)[1]
     #return solve_arec(A, G, Q + ϵ * I)
 end
 
-function update_L_amm(L, samples; ϵ = 1e-10, ϵ_μ = 0.1)
+function update_L_amm(L, samples; ϵ = 1e-10, δ_μ = 0.15, μ_trace = nothing)
     # update rule of the accelerated MM algorithm.
     N = size(L, 1)
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
-    H = mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M])
-    μ = min(max(-1, -inv(eigmax(H * (L + I)))) + ϵ_μ, 0)
+    H = mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) + ϵ * I
+    μ = min(max(-1, -inv(eigmax(H * (L + I)))) + δ_μ, 0)
 
     Q = (1 + μ) * Symmetric(L * H * L)
     G = Symmetric(inv(L + I) + μ * H)
     A = zeros(size(L))
-    return arec(A, G, Q + ϵ * I)[1]
+
+    if !isnothing(μ_trace)
+        append!(μ_trace, [μ])
+    end
+
+    return arec(A, G, Q)[1]
     #return solve_arec(A, G, Q + ϵ * I)
 end
 
@@ -280,7 +295,7 @@ end
 
 function mle_mm(dpp :: DPP, samples;
                 tol = 1e-5, max_iter = 100,
-                accelerate = false, ϵ_μ = 0.1,
+                accelerate_steps = 0, δ_μ = 0.15,
                 show_progress = true, ϵ = 1e-10,
                 plotrange = 50)
     # MLE for a full-rank DPP by the MM algorithm
@@ -292,19 +307,17 @@ function mle_mm(dpp :: DPP, samples;
     cputime_trace = zeros(max_iter)
     loglik_trace = zeros(max_iter)
     loglik_trace[1] = compute_loglik(dpp_trace[1], samples)
-
-    #if accelerate
-    #    upd(L, samples; kwargs...) = update_L_amm(L, samples; ϵ_μ = ϵ_μ, kwargs...)
-    #else
-    #    upd(L, samples; kwargs...) = update_L_mm(L, samples, kwargs...)
-    #end
-    upd(L, samples; kwargs...) = ifelse(accelerate,
-                                        update_L_amm(L, samples; ϵ_μ = ϵ_μ, kwargs...),
-                                        update_L_mm(L, samples; kwargs...))
+    μ_trace = Vector{Float64}(undef, 0)
 
     for i in 2:max_iter
-        cputime_trace[i] = @elapsed begin
-            dpp_trace[i] = DPP(upd(dpp_trace[i - 1].L, samples, ϵ = ϵ))
+        if i <= accelerate_steps + 1
+            cputime_trace[i] = @elapsed begin
+                dpp_trace[i] = DPP(update_L_amm(dpp_trace[i - 1].L, samples; δ_μ = δ_μ, μ_trace = μ_trace))
+            end
+        else
+            cputime_trace[i] = @elapsed begin
+                dpp_trace[i] = DPP(update_L_mm(dpp_trace[i - 1].L, samples; μ_trace = μ_trace))
+            end
         end
 
         loglik_trace[i] = compute_loglik(dpp_trace[i], samples)
@@ -329,5 +342,6 @@ function mle_mm(dpp :: DPP, samples;
     end
     n_iter = length(dpp_trace)
     return DPPResult(samples, dpp_trace[end], loglik_trace[end],
-                     dpp_trace, loglik_trace, cumsum(cputime_trace), n_iter)
+                     dpp_trace, loglik_trace, cumsum(cputime_trace),
+                     μ_trace, n_iter)
 end
