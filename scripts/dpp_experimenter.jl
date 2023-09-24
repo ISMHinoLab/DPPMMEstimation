@@ -35,8 +35,10 @@ function experimenter(
         max_iter = 1000, tol = 1e-4, # stopping criterion
         show_progress = true, # show progresses
         ρ = 1.0, # parameter for the fixed-point algorithm
-        η = 1e-1, ϵ = 1e-7, α = 0.9, β = 0.999, # parameters for ADAM
+        η = 1e-3, ϵ = 1e-7, α = 0.9, β = 0.999, # parameters for ADAM
         ϵ_mm = 1e-10, # machine epsilon for MM
+        δ_μ = 0.15, # tolerance for accelerated MM
+        accelerate_steps = 0, # how many steps to accelerate from the initial value of MM; 0 indicates no acceleration
         outdir = joinpath("$(@__DIR__)", "..", "output"), # path for an output directory
         save_figures = true, # save figures or not
         save_objects = true, # save .jld2 objects or not
@@ -49,14 +51,19 @@ function experimenter(
     V = eig_init.vectors * Diagonal(sqrt.(eig_init.values))
 
     # fixed-point
-    dpp_fp = mle(DPP(L), samples, ρ = ρ, max_iter = max_iter, tol = tol, show_progress = show_progress)
+    dpp_fp = mle(DPP(L), samples,
+                 ρ = ρ, accelerate_steps = accelerate_steps,
+                 max_iter = max_iter, tol = tol,
+                 show_progress = show_progress)
     # gradient ascent
     lfdpp_grad = mle_grad(LFDPP(V), samples,
                           η = η, ϵ = ϵ, α = α, β = β,
                           max_iter = max_iter, tol = tol,
                           show_progress = show_progress)
     # MM algorithm
-    dpp_mm = mle_mm(DPP(L), samples, ϵ = ϵ_mm, max_iter = max_iter, tol = tol, show_progress = show_progress)
+    dpp_mm = mle_mm(DPP(L), samples,
+                    ϵ = ϵ_mm, δ_μ = δ_μ, accelerate_steps = accelerate_steps,
+                    max_iter = max_iter, tol = tol, show_progress = show_progress)
 
     results = Dict(:fp => dpp_fp, :grad => lfdpp_grad, :mm => dpp_mm)
     if !isnothing(Ltruth)
@@ -107,6 +114,9 @@ function summarize_to_df(results; dict_cols = nothing, str_keys = false)
                          method = method) for method in methods]...)
 
     div_methods = [:fp_vn, :grad_vn, :mm_vn]
+    if str_keys
+        div_methods = string.(div_methods)
+    end
     if all([div in keys(result) for result in results, div in div_methods])
         # if von Neumann divergences are stored, add a column
         vec_col = reshape([result[div] for result in results, div in div_methods], :)

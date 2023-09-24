@@ -12,9 +12,10 @@ n_exp = 30 # number of experiments
 
 # toy1: N = 32, M = 2500
 ## WISHART initialization
+### Default hyperparameters
 Random.seed!(1234)
-outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "wishart")
-results_toy1_wishart = map(1:n_exp) do i
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "wishart", "default")
+results_toy1_wishart_default = map(1:n_exp) do i
     N = 32
     M = 2500
 
@@ -29,10 +30,30 @@ results_toy1_wishart = map(1:n_exp) do i
     return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
 end
 
-## BASIC initialization
+### Accelerated hyperparameters
 Random.seed!(1234)
-outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "basic")
-results_toy1_basic = map(1:n_exp) do i
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "wishart", "accelerated")
+results_toy1_wishart_accelerated = map(1:n_exp) do i
+    N = 32
+    M = 2500
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :wishart)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L,
+                        η = 0.1, ρ = 1.3, accelerate_steps = 5)
+end
+
+## BASIC initialization
+### Default hyperparameters
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "basic", "default")
+results_toy1_basic_default = map(1:n_exp) do i
     N = 32
     M = 2500
 
@@ -46,12 +67,33 @@ results_toy1_basic = map(1:n_exp) do i
     outdir_i = joinpath(outdir, string(i))
     return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
 end
+
+### Accelerated hyperparameters
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy1", "basic", "accelerated")
+results_toy1_basic_accelerated = map(1:n_exp) do i
+    N = 32
+    M = 2500
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :basic)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L,
+                        η = 0.01, ρ = 1.3, accelerate_steps = 10)
+end
+
 
 # toy2: N = 32, M = 2500
 ## WISHART initialization
+### Default hyperparameters
 Random.seed!(1234)
-outdir = joinpath("$(@__DIR__)", "..", "output", "toy2", "wishart")
-results_toy2_wishart = map(1:n_exp) do i
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy2", "wishart", "default")
+results_toy2_wishart_default = map(1:n_exp) do i
     N = 32
     M = 10000
 
@@ -66,10 +108,30 @@ results_toy2_wishart = map(1:n_exp) do i
     return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
 end
 
-## BASIC initialization
+### Accelerated hyperparameters
 Random.seed!(1234)
-outdir = joinpath("$(@__DIR__)", "..", "output", "toy2", "basic")
-results_toy2_basic = map(1:n_exp) do i
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy2", "wishart", "accelerated")
+results_toy2_wishart_accelerated = map(1:n_exp) do i
+    N = 32
+    M = 10000
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :wishart)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L,
+                        η = 0.1, ρ = 1.3, accelerate_steps = 5)
+end
+
+## BASIC initialization
+### Default hyperparameters
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy2", "basic", "default")
+results_toy2_basic_default = map(1:n_exp) do i
     N = 32
     M = 10000
 
@@ -83,12 +145,33 @@ results_toy2_basic = map(1:n_exp) do i
     outdir_i = joinpath(outdir, string(i))
     return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
 end
+
+### Accelerated hyperparameters
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy2", "basic", "accelerated")
+results_toy2_basic_accelerated = map(1:n_exp) do i
+    N = 32
+    M = 10000
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :basic)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L,
+                        η = 0.01, ρ = 1.3, accelerate_steps = 10)
+end
+
 
 # toy3: N = 128, M = 2500
 ## WISHART initialization
+### Default hyperparameters
 Random.seed!(1234)
-outdir = joinpath("$(@__DIR__)", "..", "output", "toy3", "wishart")
-results_toy3_wishart = map(1:n_exp) do i
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy3", "wishart", "default")
+results_toy3_wishart_default = map(1:n_exp) do i
     N = 128
     M = 2500
 
@@ -103,10 +186,30 @@ results_toy3_wishart = map(1:n_exp) do i
     return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
 end
 
-## BASIC initialization
+### Accelerated hyperparameters
 Random.seed!(1234)
-outdir = joinpath("$(@__DIR__)", "..", "output", "toy3", "basic")
-results_toy3_basic = map(1:n_exp) do i
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy3", "wishart", "accelerated")
+results_toy3_wishart_accelerated = map(1:n_exp) do i
+    N = 128
+    M = 2500
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :wishart)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L,
+                        η = 0.1, ρ = 1.3, accelerate_steps = 5)
+end
+
+## BASIC initialization
+### Default hyperparameters
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy3", "basic", "default")
+results_toy3_basic_default = map(1:n_exp) do i
     N = 128
     M = 2500
 
@@ -119,26 +222,109 @@ results_toy3_basic = map(1:n_exp) do i
     Linit = initializer(N, init = :basic)
     outdir_i = joinpath(outdir, string(i))
     return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L)
+end
+
+### Accelerated hyperparameters
+Random.seed!(1234)
+outdir = joinpath("$(@__DIR__)", "..", "output", "toy3", "basic", "accelerated")
+results_toy3_basic_accelerated = map(1:n_exp) do i
+    N = 128
+    M = 2500
+
+    V = rand(Uniform(0, 10), (N, round(Int, N))) / N
+    L = V * V'
+
+    dpp = DeterminantalPointProcess(L)
+    samples = rand(dpp, M)
+
+    Linit = initializer(N, init = :basic)
+    outdir_i = joinpath(outdir, string(i))
+    return experimenter(Linit, samples, outdir = outdir_i, Ltruth = L,
+                        η = 0.01, ρ = 1.3, accelerate_steps = 10)
 end
 
 
 dict_wishart = Dict(:init => :wishart)
 dict_basic = Dict(:init => :basic)
-df_toy1_wishart = summarize_to_df(results_toy1_wishart, dict_cols = dict_wishart)
-df_toy1_basic = summarize_to_df(results_toy1_basic, dict_cols = dict_basic)
-df_toy2_wishart = summarize_to_df(results_toy2_wishart, dict_cols = dict_wishart)
-df_toy2_basic = summarize_to_df(results_toy2_basic, dict_cols = dict_basic)
-df_toy3_wishart = summarize_to_df(results_toy3_wishart, dict_cols = dict_wishart)
-df_toy3_basic = summarize_to_df(results_toy3_basic, dict_cols = dict_basic)
+dict_default = Dict(:params => :default)
+dict_accelerated = Dict(:params => :accelerated)
+df_toy1_wishart_default = summarize_to_df(results_toy1_wishart_default,
+                                          dict_cols = merge(dict_wishart, dict_default))
+df_toy1_wishart_accelerated = summarize_to_df(results_toy1_wishart_accelerated,
+                                              dict_cols = merge(dict_wishart, dict_accelerated))
+df_toy1_basic_default = summarize_to_df(results_toy1_wishart_default,
+                                        dict_cols = merge(dict_basic, dict_default))
+df_toy1_basic_accelerated = summarize_to_df(results_toy1_wishart_accelerated,
+                                              dict_cols = merge(dict_basic, dict_accelerated))
+df_toy2_wishart_default = summarize_to_df(results_toy2_wishart_default,
+                                          dict_cols = merge(dict_wishart, dict_default))
+df_toy2_wishart_accelerated = summarize_to_df(results_toy2_wishart_accelerated,
+                                              dict_cols = merge(dict_wishart, dict_accelerated))
+df_toy2_basic_default = summarize_to_df(results_toy2_wishart_default,
+                                        dict_cols = merge(dict_basic, dict_default))
+df_toy2_basic_accelerated = summarize_to_df(results_toy2_wishart_accelerated,
+                                              dict_cols = merge(dict_basic, dict_accelerated))
+df_toy3_wishart_default = summarize_to_df(results_toy3_wishart_default,
+                                          dict_cols = merge(dict_wishart, dict_default))
+df_toy3_wishart_accelerated = summarize_to_df(results_toy3_wishart_accelerated,
+                                              dict_cols = merge(dict_wishart, dict_accelerated))
+df_toy3_basic_default = summarize_to_df(results_toy3_wishart_default,
+                                        dict_cols = merge(dict_basic, dict_default))
+df_toy3_basic_accelerated = summarize_to_df(results_toy3_wishart_accelerated,
+                                              dict_cols = merge(dict_basic, dict_accelerated))
 
-df_toy1 = vcat(df_toy1_wishart, df_toy1_basic)
+df_toy1 = vcat(df_toy1_wishart_default, df_toy1_wishart_accelerated,
+               df_toy1_basic_default, df_toy1_basic_accelerated)
 df_toy1[:, :setting] .= 1
-df_toy2 = vcat(df_toy2_wishart, df_toy2_basic)
+df_toy2 = vcat(df_toy2_wishart_default, df_toy2_wishart_accelerated,
+               df_toy2_basic_default, df_toy2_basic_accelerated)
 df_toy2[:, :setting] .= 2
-df_toy3 = vcat(df_toy3_wishart, df_toy3_basic)
+df_toy3 = vcat(df_toy3_wishart_default, df_toy3_wishart_accelerated,
+               df_toy3_basic_default, df_toy3_basic_accelerated)
 df_toy3[:, :setting] .= 3
 outdir = joinpath("$(@__DIR__)", "..", "output")
 CSV.write(joinpath(outdir, "toy_results.csv"), vcat(df_toy1, df_toy2, df_toy3))
+
+
+## load results
+#results_toy1_wishart_default = [load(outdir * "/toy1/wishart/default/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy1_wishart_accelerated = [load(outdir * "/toy1/wishart/accelerated/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy1_basic_default = [load(outdir * "/toy1/basic/default/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy1_basic_accelerated = [load(outdir * "/toy1/basic/accelerated/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy2_wishart_default = [load(outdir * "/toy2/wishart/default/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy2_wishart_accelerated = [load(outdir * "/toy2/wishart/accelerated/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy2_basic_default = [load(outdir * "/toy2/basic/default/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy2_basic_accelerated = [load(outdir * "/toy2/basic/accelerated/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy3_wishart_default = [load(outdir * "/toy3/wishart/default/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy3_wishart_accelerated = [load(outdir * "/toy3/wishart/accelerated/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy3_basic_default = [load(outdir * "/toy3/basic/default/$(i)/results.jld2") for i in 1:n_exp]
+#results_toy3_basic_accelerated = [load(outdir * "/toy3/basic/accelerated/$(i)/results.jld2") for i in 1:n_exp]
+#
+#df_toy1_wishart_default = summarize_to_df(results_toy1_wishart_default, str_keys = true,
+#                                          dict_cols = merge(dict_wishart, dict_default))
+#df_toy1_wishart_accelerated = summarize_to_df(results_toy1_wishart_accelerated, str_keys = true,
+#                                              dict_cols = merge(dict_wishart, dict_accelerated))
+#df_toy1_basic_default = summarize_to_df(results_toy1_basic_default, str_keys = true,
+#                                        dict_cols = merge(dict_basic, dict_default))
+#df_toy1_basic_accelerated = summarize_to_df(results_toy1_basic_accelerated, str_keys = true,
+#                                              dict_cols = merge(dict_basic, dict_accelerated))
+#df_toy2_wishart_default = summarize_to_df(results_toy2_wishart_default, str_keys = true,
+#                                          dict_cols = merge(dict_wishart, dict_default))
+#df_toy2_wishart_accelerated = summarize_to_df(results_toy2_wishart_accelerated, str_keys = true,
+#                                              dict_cols = merge(dict_wishart, dict_accelerated))
+#df_toy2_basic_default = summarize_to_df(results_toy2_basic_default, str_keys = true,
+#                                        dict_cols = merge(dict_basic, dict_default))
+#df_toy2_basic_accelerated = summarize_to_df(results_toy2_basic_accelerated, str_keys = true,
+#                                              dict_cols = merge(dict_basic, dict_accelerated))
+#df_toy3_wishart_default = summarize_to_df(results_toy3_wishart_default, str_keys = true,
+#                                          dict_cols = merge(dict_wishart, dict_default))
+#df_toy3_wishart_accelerated = summarize_to_df(results_toy3_wishart_accelerated, str_keys = true,
+#                                              dict_cols = merge(dict_wishart, dict_accelerated))
+#df_toy3_basic_default = summarize_to_df(results_toy3_basic_default, str_keys = true,
+#                                        dict_cols = merge(dict_basic, dict_default))
+#df_toy3_basic_accelerated = summarize_to_df(results_toy3_basic_accelerated, str_keys = true,
+#                                              dict_cols = merge(dict_basic, dict_accelerated))
+
 
 
 #=

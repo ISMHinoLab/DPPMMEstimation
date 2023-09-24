@@ -28,16 +28,16 @@ struct DPPResult
 
     function DPPResult(samples, dpp_trace)
         loglik_trace = map(dpp -> compute_loglik(dpp, samples), dpp_trace)
-        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, zeros(), zeros(), length(dpp_trace))
+        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, zeros(), Float64[], length(dpp_trace))
     end
 
     function DPPResult(samples, dpp_trace, cputime_trace)
         loglik_trace = map(dpp -> compute_loglik(dpp, samples), dpp_trace)
-        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, cputime_trace, zeros(), length(dpp_trace))
+        new(samples, dpp_trace[end], loglik_trace[end], dpp_trace, loglik_trace, cputime_trace, Float64[], length(dpp_trace))
     end
 
     function DPPResult(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, n_iter)
-        new(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, zeros(), n_iter)
+        new(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, Float64[], n_iter)
     end
 
     function DPPResult(samples, dpp, loglik, dpp_trace, loglik_trace, cputime_trace, μ_trace, n_iter)
@@ -151,7 +151,7 @@ function update_L_mm(L, samples; ϵ = 1e-10, μ_trace = nothing)
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
-    Q = Symmetric(L * (mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) + ϵ * I) * L)
+    Q = Symmetric(L * (mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M])) * L) + ϵ * I
     G = Symmetric(inv(L + I))
     A = zeros(size(L))
 
@@ -169,10 +169,10 @@ function update_L_amm(L, samples; ϵ = 1e-10, δ_μ = 0.15, μ_trace = nothing)
     M = length(samples)
     U_samples = [sparse(I(N)[sample, :]) for sample in samples]
 
-    H = mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M]) + ϵ * I
-    μ = min(max(-1, -inv(eigmax(H * (L + I)))) + δ_μ, 0)
+    H = mean([U_samples[m]' * inv(L[samples[m], samples[m]]) * U_samples[m] for m in 1:M])# + ϵ * I
+    μ = min(max(-1, -inv(eigmax(Symmetric(H * (L + I))))) + δ_μ, 0)
 
-    Q = (1 + μ) * Symmetric(L * H * L)
+    Q = (1 + μ) * Symmetric(L * H * L) + ϵ * I
     G = Symmetric(inv(L + I) + μ * H)
     A = zeros(size(L))
 
@@ -196,7 +196,10 @@ function grad_V(V, samples)
     return 2 * (term1 + term2) * V
 end
 
-function mle(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, ρ = 1.0, show_progress = true, plotrange = 50)
+function mle(dpp :: DPP, samples;
+             tol = 1e-5, max_iter = 100,
+             accelerate_steps = 0, ρ = 1.0,
+             show_progress = true, plotrange = 50)
     # MLE for a full-rank DPP by the fixed-point method (Mariet & Sra, 2015)
     prog = Progress(max_iter - 1)
 
@@ -207,9 +210,16 @@ function mle(dpp :: DPP, samples; tol = 1e-5, max_iter = 100, ρ = 1.0, show_pro
     loglik_trace[1] = compute_loglik(dpp_trace[1], samples)
 
     for i in 2:max_iter
-        cputime_trace[i] = @elapsed begin
-            dpp_trace[i] = DPP(update_L(dpp_trace[i - 1].L, samples, ρ))
+        if i <= accelerate_steps + 1
+            cputime_trace[i] = @elapsed begin
+                dpp_trace[i] = DPP(update_L(dpp_trace[i - 1].L, samples, ρ))
+            end
+        else
+            cputime_trace[i] = @elapsed begin
+                dpp_trace[i] = DPP(update_L(dpp_trace[i - 1].L, samples))
+            end
         end
+
 
         loglik_trace[i] = compute_loglik(dpp_trace[i], samples)
 
