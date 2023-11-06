@@ -1,7 +1,7 @@
 # DPPMMEstimation
 Estimating parameters of determinantal point processes using an MM algorithm.
 Provides examples of the paper published in TMLR:  
-[Takahiro Kawashima, Hideitsu Hino, "Minorization-Maximization for Learning Determinantal Point Processes," _Transactions on Machine Learning Research_, November 2023.](https://openreview.net/forum?id=65AzNvY73Q)
+Takahiro Kawashima, Hideitsu Hino, ["Minorization-Maximization for Learning Determinantal Point Processes,"](https://openreview.net/forum?id=65AzNvY73Q) _Transactions on Machine Learning Research_, November 2023.
 
 # Working Directory
 Please set your working directory at `scripts/`.
@@ -30,6 +30,7 @@ All the program are implemented in Julia.
 |`MatrixEquations`  |≥ 2.2.2|
 |`CSV`  |≥ 0.10.7|
 |`MAT`  |≥ 0.10.3|
+|`StatsPlots`  |≥ 0.15.5|
 
 # How to Setup
 
